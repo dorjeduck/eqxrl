@@ -1,6 +1,6 @@
 # PureEqxRL
 
-A port of [PureJaxRL](https://github.com/luchris429/purejaxrl) using Equinox.
+A port of [PureJaxRL](https://github.com/luchris429/purejaxrl) using [Equinox](https://github.com/patrick-kidger/equinox).
 
 ## License
 
