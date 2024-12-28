@@ -49,13 +49,6 @@ We welcome contributions, especially in the areas of:
 * Additional RL algorithm implementations
 * Bug fixes and testing
 
-## License
-
-This project is licensed under the Apache License 2.0. See the [LICENSE](./LICENSE) file for details.
-
-PureEqxRL is a port of [PureJaxRL](https://github.com/luchris429/purejaxrl), which is also licensed under the Apache License 2.0. The copyright for [PureJaxRL](https://github.com/luchris429/purejaxrl) belongs to its respective contributors.
-
-
 
 ## Acknowledgements
 
@@ -64,7 +57,14 @@ Special thanks to [luchris429](https://github.com/luchris429) for creating the o
 
 ## Changelog
 
-### 2024.12.28
-- Simple benchmark added.
-### 2024.12.23
-- Initial commit.
+- 2024.12.28
+    - Simple benchmark added.
+- 2024.12.23
+    - Initial commit.
+
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](./LICENSE) file for details.
+
+PureEqxRL is a port of [PureJaxRL](https://github.com/luchris429/purejaxrl), which is also licensed under the Apache License 2.0. The copyright for [PureJaxRL](https://github.com/luchris429/purejaxrl) belongs to its respective contributors.
