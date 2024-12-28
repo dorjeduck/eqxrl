@@ -7,8 +7,8 @@ A minimalist reinforcement learning implementation in JAX, powered by [Equinox](
 This project is in very early development. Currently we have:
 
 * Ported the [DQN](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) (Deep Q-Network) implementation from [PureJaxRL](https://github.com/luchris429/purejaxrl)
-* Initial performance benchmarking between Equinox and Flax based implementations
-* Our Equinox port currently shows slower performance compared to the original Flax implementation.
+* Set up initial performance benchmarking to compare Equinox and Flax implementations (see Benchmarking section below)
+* Found our Equinox port currently runs slower than the original Flax implementation, prompting ongoing optimization work.
 
 
 ## Getting Started
@@ -20,11 +20,11 @@ pip install -r requirements.txt
 cd pureeqxrl
 python dqn_eqx.py
 ```
-We also added the original PureJaxRL implementation (see [dqn_flax_linen](./pureeqxrl/dqn_flax_linen.py))
+We also added the original PureJaxRL implementation (see [dqn_flax_linen.py](./pureeqxrl/dqn_flax_linen.py))
 
 ## Benchmarking
 
-To better understand the performance differences between Flax/Linen and Equinox implementations, we started looking into potential bottlenecks. For this investigation, we set up a simple benchmark (`benchmarks/simple_benchmark.py`) that breaks down key operations in the DQN algorithm:
+To better understand the performance differences between Flax/Linen and Equinox implementations, we started looking into potential bottlenecks. For this investigation, we set up a simple benchmark [simple_benchmark.py](./benchmarks/simple_benchmark.py) that breaks down key operations in the DQN algorithm:
 
 | Metric                    | Linen (ms)    | Equinox (ms)  | Slowdown (%) |
 |--------------------------|---------------|----------------|--------------|
