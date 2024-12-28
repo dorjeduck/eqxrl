@@ -2,11 +2,12 @@
 PureJaxRL version of CleanRL's DQN: https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py
 """
 
-import os
 import time
+import json
+import warnings
+
 import jax
 import jax.numpy as jnp
-
 import chex
 import flax
 import wandb
@@ -18,8 +19,7 @@ from gymnax.wrappers.purerl import FlattenObservationWrapper, LogWrapper
 import gymnax
 import flashbax as fbx
 
-import warnings
-import json
+from utils import print_results
 
 # Enable 64-bit mode in JAX
 jax.config.update("jax_enable_x64", True)
@@ -276,15 +276,16 @@ def main():
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
+    # the complete computation as warmup round ;-)
+    _ = jax.block_until_ready(train_vjit(rngs))
+
+    # getting serious ...
     start = time.time()
-    outs = jax.block_until_ready(train_vjit(rngs))
+    _ = jax.block_until_ready(train_vjit(rngs))
     duration = time.time() - start
 
-    for idx in jnp.lexsort(
-        (-jnp.arange(len(outs["metrics"]["returns"][0])), outs["metrics"]["returns"][0])
-    )[-10:][::-1]:
-        print(f"Index: {idx}, Value: {outs['metrics']['returns'][0][idx]}")
     print(f"Duration: {duration:.2f} seconds")
+
 
 if __name__ == "__main__":
     main()

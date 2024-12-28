@@ -1,0 +1,10 @@
+
+jax
+jaxlib
+chex
+flax
+wandb
+optax
+gymnax
+flashbax
+equinox
