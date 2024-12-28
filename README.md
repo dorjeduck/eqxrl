@@ -59,7 +59,7 @@ PureEqxRL is a port of [PureJaxRL](https://github.com/luchris429/purejaxrl), whi
 
 ## Acknowledgements
 
-Special thanks to [luchris429](https://github.com/luchris429) for creating the original [PureJaxRL](https://github.com/luchris429/purejaxrl) repository.
+Special thanks to [luchris429](https://github.com/luchris429) for creating the original [PureJaxRL](https://github.com/luchris429/purejaxrl) repository and to [patrick-kidger](https://github.com/patrick-kidger) for the awesome [Equinox](https://github.com/patrick-kidger/equinox) library. 
 
 
 ## Changelog
