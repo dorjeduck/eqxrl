@@ -1,14 +1,10 @@
 # PureEqxRL
 
-A minimalist reinforcement learning implementation in JAX, powered by [Equinox](https://github.com/patrick-kidger/equinox). This project is a port of [PureJaxRL](https://github.com/luchris429/purejaxrl), replacing the [Flax-Linen](https://flax-linen.readthedocs.io/en/latest/) neural network implementation with [Equinox](https://github.com/patrick-kidger/equinox).
+A minimalist reinforcement learning implementation in JAX, powered by [Equinox](https://github.com/patrick-kidger/equinox). This project aims to reimplement [PureJaxRL](https://github.com/luchris429/purejaxrl), replacing the [Flax-Linen](https://flax-linen.readthedocs.io/en/latest/) neural network implementation with [Equinox](https://github.com/patrick-kidger/equinox).
 
 ## Project Status?
 
-This project is in very early development. Currently we have:
-
-* Ported the [DQN](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) (Deep Q-Network) implementation from [PureJaxRL](https://github.com/luchris429/purejaxrl)
-* Set up initial performance benchmarking to compare Equinox and Flax implementations (see Benchmarking section below)
-* Found our Equinox port currently runs slower than the original Flax implementation, prompting ongoing optimization work.
+This project is in very early development. So far we have ported only the [DQN](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) (Deep Q-Network) implementation from [PureJaxRL](https://github.com/luchris429/purejaxrl). Our main focus at the moment is on comparing performance between the two implementations and improving our Equinox-based version, which currently shows lower performance.
 
 
 ## Getting Started
