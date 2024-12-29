@@ -4,7 +4,7 @@ A minimalist reinforcement learning implementation in JAX, powered by [Equinox](
 
 ## Project Status?
 
-This project is in very early development. So far we have ported only the [DQN](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) (Deep Q-Network) implementation from [PureJaxRL](https://github.com/luchris429/purejaxrl). Our main focus at the moment is on comparing performance between the two implementations and improving our Equinox-based version, which currently shows lower performance.
+This project is in very early development. So far we have only ported the [DQN](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) (Deep Q-Network) implementation from [PureJaxRL](https://github.com/luchris429/purejaxrl). Our main focus at the moment is on comparing performance between the two implementations and improving our Equinox-based version, which shows lower performance.
 
 
 ## Getting Started
