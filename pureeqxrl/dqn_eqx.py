@@ -18,8 +18,6 @@ import wandb
 from dataclasses import replace
 from gymnax.wrappers.purerl import FlattenObservationWrapper, LogWrapper
 
-from utils import print_results
-
 # Enable 64-bit mode in JAX
 jax.config.update("jax_enable_x64", True)
 
@@ -317,7 +315,7 @@ def main():
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
     # the complete computation as warmup round ;-)
-    _ = jax.block_until_ready(train_vjit(rngs))
+    # _ = jax.block_until_ready(train_vjit(rngs))
 
     # getting serious ...
     start = time.time()

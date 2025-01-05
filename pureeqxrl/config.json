@@ -20,6 +20,5 @@
     "NUM_SEEDS": 1,
     "WANDB_MODE": "disabled",
     "ENTITY": "",
-    "PROJECT": "",
-    "PRINT_NUM_RESULTS": 3
+    "PROJECT": ""
 }
