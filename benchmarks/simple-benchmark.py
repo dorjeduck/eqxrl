@@ -5,7 +5,6 @@ import equinox as eqx
 import gymnax
 import time
 import optax
-import os
 
 
 from libs import (
@@ -86,8 +85,8 @@ def profile_training(steps=1000, runs=10):
             start = time.perf_counter()
             for _ in range(steps):
                 state = collect_fn(state, env, env_params, actor)
-                state = update_fn(state)
-                state = jax.block_until_ready(state)
+                state = jax.block_until_ready(update_fn(state))
+
             full_time = (time.perf_counter() - start) / steps
             results[fw]["full_time"].append(full_time)
 
