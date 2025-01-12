@@ -31,12 +31,12 @@ To better understand the performance differences between Flax/Linen and Equinox 
 
 Based on the performance recommendations provided in the issue [Equinox much slower than flax linen when passing pytrees](https://github.com/patrick-kidger/equinox/issues/928), we achieved the following improvements (for details, see [simple_benchmark_flatten.py](./benchmarks/simple_benchmark_flatten.py))
 
-| Metric                    | Linen           | Equinox         | Difference (%)  |
+| Metric                    | Linen (ms)          | Equinox (ms)        | Difference (%)  |
 |-------------------------|---------------|---------------|---------------|
-| Full step (ms)            | 0.189           | 0.221           | 16.78           |
-| Forward (ms)              | 0.028           | 0.038           | 33.62           |
-| Collect (ms)              | 0.090           | 0.109           | 20.98           |
-| Policy update (ms)        | 0.086           | 0.104           | 20.20           |
+| Full step            | 0.189           | 0.221           | 16.78           |
+| Forward              | 0.028           | 0.038           | 33.62           |
+| Collect              | 0.090           | 0.109           | 20.98           |
+| Policy update        | 0.086           | 0.104           | 20.20           |
 
 We will look further into this ...
 
