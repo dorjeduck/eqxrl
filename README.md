@@ -34,8 +34,8 @@ Based on the performance recommendations provided in the issue [Equinox much slo
 | Metric                    | Linen (ms)          | Equinox (ms)        | Difference (%)  |
 |-------------------------|---------------|---------------|---------------|
 | Full step            | 0.189           | 0.221           | 16.78           |
-| Forward              | 0.028           | 0.038           | 33.62           |
-| Collect              | 0.090           | 0.109           | 20.98           |
+| Forward pass             | 0.028           | 0.038           | 33.62           |
+| Experience collection              | 0.090           | 0.109           | 20.98           |
 | Policy update        | 0.086           | 0.104           | 20.20           |
 
 We will look further into this ...
