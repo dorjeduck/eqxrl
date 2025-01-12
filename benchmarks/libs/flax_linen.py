@@ -25,6 +25,7 @@ class TrainingStateLinen(NamedTuple):
     env_state: any
     obs: jnp.ndarray
 
+
 @partial(jax.jit, static_argnums=(1))
 def forward_pass_linen(state, actor):
     return actor.apply(state.params, state.obs)
@@ -44,8 +45,8 @@ def collect_experience_linen(state, env, env_params, actor):
     return TrainingStateLinen(params, opt_state, rng, next_env_state, next_obs)
 
 
-@jax.jit
-def update_policy_linen(state):
+@partial(jax.jit, static_argnums=(1))
+def update_policy_linen(state, _):
     params, opt_state, rng, env_state, obs = state
 
     grads = jax.tree_util.tree_map(jnp.zeros_like, params)

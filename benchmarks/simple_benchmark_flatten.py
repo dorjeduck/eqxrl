@@ -11,13 +11,13 @@ from libs import (
     ActorLinen,
     TrainingStateLinen,
     ActorEqx,
-    TrainingStateEqx,
+    TrainingStateEqxFlatten,
     collect_experience_linen,
-    collect_experience_eqx,
+    collect_experience_eqx_flatten,
     update_policy_linen,
-    update_policy_eqx,
+    update_policy_eqx_flatten,
     forward_pass_linen,
-    forward_pass_eqx,
+    forward_pass_eqx_flatten,
 )
 
 
@@ -42,20 +42,27 @@ def init_training(seed=0, framework="linen"):
         train_state = TrainingStateLinen(
             params=params, opt_state=opt_state, rng=rng, env_state=env_state, obs=obs
         )
+        treedef = None
 
     else:
         actor = ActorEqx(key, obs_size, action_size)
 
         opt_state = optimizer.init(eqx.filter(actor, eqx.is_array))
 
-        train_state = TrainingStateEqx(
-            actor=actor, opt_state=opt_state, rng=rng, env_state=env_state, obs=obs
+        leaf_values, treedef = jax.tree.flatten(actor)
+
+        train_state = TrainingStateEqxFlatten(
+            leaf_values=leaf_values,
+            opt_state=opt_state,
+            rng=rng,
+            env_state=env_state,
+            obs=obs,
         )
 
-    return train_state, env, env_params, actor
+    return train_state, env, env_params, actor, treedef
 
 
-def profile_training(steps=1000, runs=10):
+def profile_training(steps=100, runs=10):
     frameworks = ["linen", "eqx"]
     results = {
         fw: {"full_time": [], "forward_time": [], "collect_time": [], "policy_time": []}
@@ -64,28 +71,30 @@ def profile_training(steps=1000, runs=10):
 
     for _ in range(runs):
         for fw in frameworks:
-            state, env, env_params, actor = init_training(framework=fw)
+            state, env, env_params, actor, treedef = init_training(framework=fw)
 
             if fw == "linen":
                 forward_fn = forward_pass_linen
                 collect_fn = collect_experience_linen
                 update_fn = update_policy_linen
+                extra = actor
             else:
-                forward_fn = forward_pass_eqx
-                collect_fn = collect_experience_eqx
-                update_fn = update_policy_eqx
+                forward_fn = forward_pass_eqx_flatten
+                collect_fn = collect_experience_eqx_flatten
+                update_fn = update_policy_eqx_flatten
+                extra = treedef
 
             # Warmup
             for _ in range(5):
-                _ = forward_fn(state, actor)
-                state = collect_fn(state, env, env_params, actor)
-                state = update_fn(state)
+                _ = forward_fn(state, extra)
+                state = collect_fn(state, env, env_params, extra)
+                state = update_fn(state, extra)
 
             # Profile full step
             start = time.perf_counter()
             for _ in range(steps):
-                state = collect_fn(state, env, env_params, actor)
-                state = jax.block_until_ready(update_fn(state))
+                state = collect_fn(state, env, env_params, extra)
+                state = jax.block_until_ready(update_fn(state, extra))
 
             full_time = (time.perf_counter() - start) / steps
             results[fw]["full_time"].append(full_time)
@@ -94,15 +103,15 @@ def profile_training(steps=1000, runs=10):
             times = {"forward": 0.0, "collect": 0.0, "policy": 0.0}
             for _ in range(steps):
                 start = time.perf_counter()
-                _ = jax.block_until_ready(forward_fn(state, actor))
+                _ = jax.block_until_ready(forward_fn(state, extra))
                 times["forward"] += (time.perf_counter() - start) / steps
 
                 start = time.perf_counter()
-                state = jax.block_until_ready(collect_fn(state, env, env_params, actor))
+                state = jax.block_until_ready(collect_fn(state, env, env_params, extra))
                 times["collect"] += (time.perf_counter() - start) / steps
 
                 start = time.perf_counter()
-                state = jax.block_until_ready(update_fn(state))
+                state = jax.block_until_ready(update_fn(state, extra))
                 times["policy"] += (time.perf_counter() - start) / steps
 
             results[fw]["forward_time"].append(times["forward"])

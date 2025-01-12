@@ -12,3 +12,10 @@ from .eqx import (
     update_policy_eqx,
     forward_pass_eqx,
 )
+
+from .eqx_flatten import (
+    TrainingStateEqxFlatten,
+    collect_experience_eqx_flatten,
+    update_policy_eqx_flatten,
+    forward_pass_eqx_flatten,
+)
