@@ -29,7 +29,16 @@ To better understand the performance differences between Flax/Linen and Equinox 
 | Experience collection     | 0.089         | 0.132         | 48.59       |
 | Policy update            | 0.086         | 0.121         | 41.06       |
 
-The initial results show that our Equinox implementation is running slower across all measured operations, with the forward pass showing the largest performance gap. While these results are by no means a reliable, repeatable metric, they provide a valuable starting point for targeted optimization efforts.
+Based on the performance recommendations provided in the issue [Equinox much slower than flax linen when passing pytrees](https://github.com/patrick-kidger/equinox/issues/928), we achieved the following improvements (for details, see [simple_benchmark_flatten.py](./benchmarks/simple_benchmark_flatten.py))
+
+| Metric                    | Linen           | Equinox         | Difference (%)  |
+|-------------------------|---------------|---------------|---------------|
+| Full step (ms)            | 0.189           | 0.221           | 16.78           |
+| Forward (ms)              | 0.028           | 0.038           | 33.62           |
+| Collect (ms)              | 0.090           | 0.109           | 20.98           |
+| Policy update (ms)        | 0.086           | 0.104           | 20.20           |
+
+We will look further into this ...
 
 ### Next steps:
 
