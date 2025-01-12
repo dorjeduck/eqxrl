@@ -132,21 +132,23 @@ def profile_training(steps=100, runs=10):
 
     metrics = ["full_time", "forward_time", "collect_time", "policy_time"]
     metric_names = [
-        "Full step (ms)",
-        "Forward (ms)",
-        "Collect (ms)",
-        "Policy update (ms)",
+        "Full step",
+        "Forward pass",
+        "Experience collection",
+        "Policy update",
     ]
 
     # Print and write results to Markdown file
     with open("benchmark_results.md", "w") as f:
         print("\nBenchmarking Results Comparison:")
-        print(f"{'Metric':<25} {'Linen':<15} {'Equinox':<15} {'Difference (%)':<15}")
+        print(
+            f"{'Metric':<25} {'Linen (ms)':<15} {'Equinox (ms)':<15} {'Difference (%)':<15}"
+        )
         print(f"{'-'*70}")
 
         f.write("# Benchmarking Results Comparison\n\n")
         f.write(
-            f"| {'Metric':<25} | {'Linen':<15} | {'Equinox':<15} | {'Difference (%)':<15} |\n"
+            f"| {'Metric':<25} | {'Linen (ms)':<15} | {'Equinox (ms)':<15} | {'Difference (%)':<15} |\n"
         )
         f.write(f"|{'-'*25}|{'-'*15}|{'-'*15}|{'-'*15}|\n")
 

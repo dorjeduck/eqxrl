@@ -22,7 +22,7 @@ We also added the original PureJaxRL implementation (see [dqn_flax_linen.py](./p
 
 To better understand the performance differences between Flax/Linen and Equinox implementations, we started looking into potential bottlenecks. For this investigation, we set up a simple benchmark [simple_benchmark.py](./benchmarks/simple_benchmark.py) that breaks down key operations in the DQN algorithm:
 
-| Metric                    | Linen (ms)    | Equinox (ms)  | Slowdown (%) |
+| Metric                    | Linen (ms)    | Equinox (ms)  | Difference (%) |
 |--------------------------|---------------|----------------|--------------|
 | Full step                | 0.183         | 0.234         | 28.16       |
 | Forward pass             | 0.027         | 0.049         | 80.01       |
