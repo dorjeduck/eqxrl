@@ -12,6 +12,7 @@ import flashbax as fbx
 import gymnax
 import jax
 import jax.numpy as jnp
+from jaxtyping import PyTreeDef
 import optax
 import wandb
 
@@ -47,15 +48,19 @@ class TrainState(eqx.Module):
     flat_model: list
     flat_opt_state: list
 
+    treedef_model: PyTreeDef = eqx.static_field()
+    treedef_opt_state: PyTreeDef = eqx.static_field()
+
     tx: optax.GradientTransformation = eqx.static_field()
+
     step: int
 
-    def apply_gradients(self, grads, treedef_model, treedef_opt_state):
+    def apply_gradients(self, grads):
 
-        model = jax.tree.unflatten(treedef_model, self.flat_model)
-        opt_state = jax.tree.unflatten(treedef_opt_state, self.flat_opt_state)
+        model = jax.tree.unflatten(self.treedef_model, self.flat_model)
+        opt_state = jax.tree.unflatten(self.treedef_opt_state, self.flat_opt_state)
 
-        updates, update_opt_state = self.tx.update(grads, opt_state, model)
+        updates, update_opt_state = self.tx.update(grads, opt_state)
         update_model = eqx.apply_updates(model, updates)
 
         flat_update_model = jax.tree_util.tree_leaves(update_model)
@@ -157,6 +162,8 @@ def make_train(config):
         train_state = CustomTrainState(
             flat_model=flat_model,
             flat_opt_state=flat_opt_state,
+            treedef_model=treedef_model,
+            treedef_opt_state=treedef_opt_state,
             tx=tx,
             flat_target_model=flat_target_model,
             step=0,
@@ -242,12 +249,10 @@ def make_train(config):
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
                 model = jax.tree.unflatten(treedef_model, train_state.flat_model)
+
                 loss, grads = jax.value_and_grad(_loss_fn)(model)
-                train_state = train_state.apply_gradients(
-                    grads=grads,
-                    treedef_model=treedef_model,
-                    treedef_opt_state=treedef_opt_state,
-                )
+
+                train_state = train_state.apply_gradients(grads=grads)
 
                 train_state = train_state.replace(n_updates=train_state.n_updates + 1)
                 return train_state, loss
@@ -336,14 +341,16 @@ def main():
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
     # the complete computation as warmup round ;-)
-    # _ = jax.block_until_ready(train_vjit(rngs))
+    _ = jax.block_until_ready(train_vjit(rngs))
 
     # getting serious ...
     start = time.time()
-    _ = jax.block_until_ready(train_vjit(rngs))
+    m = jax.block_until_ready(train_vjit(rngs))
     duration = time.time() - start
 
     print(f"Duration: {duration:.2f} seconds")
+
+    print(m["metrics"]["returns"])
 
 
 if __name__ == "__main__":
