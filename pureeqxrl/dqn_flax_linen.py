@@ -190,6 +190,7 @@ def make_train(config):
 
                 loss, grads = jax.value_and_grad(_loss_fn)(train_state.params)
                 train_state = train_state.apply_gradients(grads=grads)
+
                 train_state = train_state.replace(n_updates=train_state.n_updates + 1)
                 return train_state, loss
 
@@ -276,12 +277,14 @@ def main():
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
     # the complete computation as warmup round ;-)
-    # _ = jax.block_until_ready(train_vjit(rngs))
+    _ = jax.block_until_ready(train_vjit(rngs))
 
     # getting serious ...
     start = time.time()
-    _ = jax.block_until_ready(train_vjit(rngs))
+    m = jax.block_until_ready(train_vjit(rngs))
     duration = time.time() - start
+
+    print(m["metrics"]["returns"])
 
     print(f"Duration: {duration:.2f} seconds")
 

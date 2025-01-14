@@ -18,6 +18,7 @@ import wandb
 from dataclasses import replace
 from gymnax.wrappers.purerl import FlattenObservationWrapper, LogWrapper
 
+
 # Enable 64-bit mode in JAX
 jax.config.update("jax_enable_x64", True)
 
@@ -50,8 +51,8 @@ class TrainState(eqx.Module):
     step: int
 
     def apply_gradients(self, grads):
-        filtered_model = eqx.filter(self.model, eqx.is_array)
-        updates, new_opt_state = self.tx.update(grads, self.opt_state, filtered_model)
+        # filtered_model = eqx.filter(self.model, eqx.is_array)
+        updates, new_opt_state = self.tx.update(grads, self.opt_state)
         new_model = eqx.apply_updates(self.model, updates)
 
         return self.replace(
@@ -227,7 +228,9 @@ def make_train(config):
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
                 loss, grads = jax.value_and_grad(_loss_fn)(train_state.model)
+
                 train_state = train_state.apply_gradients(grads=grads)
+
                 train_state = train_state.replace(n_updates=train_state.n_updates + 1)
                 return train_state, loss
 
@@ -256,8 +259,8 @@ def make_train(config):
                         lambda source, target: optax.incremental_update(
                             source, target, config["TAU"]
                         ),
-                        eqx.filter(train_state.model, eqx.is_array),
-                        eqx.filter(train_state.target_model, eqx.is_array),
+                        train_state.model,
+                        train_state.target_model,
                     )
                 ),
                 lambda train_state: train_state,
@@ -315,14 +318,16 @@ def main():
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
     # the complete computation as warmup round ;-)
-    # _ = jax.block_until_ready(train_vjit(rngs))
+    _ = jax.block_until_ready(train_vjit(rngs))
 
     # getting serious ...
     start = time.time()
-    _ = jax.block_until_ready(train_vjit(rngs))
+    m = jax.block_until_ready(train_vjit(rngs))
     duration = time.time() - start
 
     print(f"Duration: {duration:.2f} seconds")
+
+    print(m["metrics"]["returns"])
 
 
 if __name__ == "__main__":
