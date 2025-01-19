@@ -1,8 +1,8 @@
-# EqxRL - JAX/Equinox Reinforcement Learning Projects
+# EqxRL
 
 ⚠️ Work In Progress ⚠️
 
-This repository contains implementations of various reinforcement learning algorithms ported to JAX and Equinox. The main goal is to learn and understand both RL concepts and JAX/Equinox frameworks through hands-on implementation. 
+This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax) and [Equinox](https://github.com/patrick-kidger/equinox). The main goal is to learn and understand both RL concepts and JAX/Equinox frameworks through hands-on implementation. 
 
 
 > **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative. This is mainly for learning purposes and to understand the differences between these approaches.
