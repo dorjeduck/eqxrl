@@ -172,5 +172,8 @@ cython_debug/
 
 ## my stuff
 
-x.py
+x*.py
 benchmarks-test/
+cleaneqxrl/
+simpleeqxrl/
+repos

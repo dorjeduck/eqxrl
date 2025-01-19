@@ -1,8 +1,8 @@
 # Benchmarking Results Comparison
 
-| Metric                    | Linen           | Equinox         | Difference (%)  |
+| Metric                    | Linen (ms)      | Equinox (ms)    | Difference (%)  |
 |-------------------------|---------------|---------------|---------------|
-| Full step (ms)            | 0.189           | 0.221           | 16.78           |
-| Forward (ms)              | 0.028           | 0.038           | 33.62           |
-| Collect (ms)              | 0.090           | 0.109           | 20.98           |
-| Policy update (ms)        | 0.086           | 0.104           | 20.20           |
+| Full step                 | 0.195           | 0.212           | 9.17            |
+| Forward pass              | 0.028           | 0.038           | 33.76           |
+| Experience collection     | 0.091           | 0.110           | 20.48           |
+| Policy update             | 0.087           | 0.105           | 20.28           |
