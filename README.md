@@ -20,8 +20,8 @@ This is an active work in progress. Expect frequent changes, refactoring, and po
 
 ## Implementations
 
-* [./pureeqxrl/dqn_eqx.py](./pureeqxrl/dqn_eqx.py) Direct port of [PureJaxRl DQN implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. 
-* [./pureeqxrl/dqn_eqx_flatten.py](./pureeqxrl/dqn_eqx_flatten.py) Performance-optimized version of [./pureeqxrl/dqn_eqx.py], based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). (marginal performance gain)
+* [**dqn_eqx.py**](./pureeqxrl/dqn_eqx.py): Direct port of the [PureJaxRL DQN implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. 
+* [**dqn_eqx_flatten.py**](./pureeqxrl/dqn_eqx_flatten.py): Performance-optimized version of **dqn_eqx.py**, based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). (marginal performance gain)
 
 more to come ...
 
