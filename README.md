@@ -18,6 +18,13 @@ This project focuses on reimplementing classic RL algorithms using JAX's functio
 ## Current Status
 This is an active work in progress. Expect frequent changes, refactoring, and potential breaking changes. Some implementations may be incomplete or unoptimized.
 
+## Implementations
+
+* [./pureeqxrl/dqn_eqx.py](./pureeqxrl/dqn_eqx.py) Direct port of [PureJaxRl DQN implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. 
+* [./pureeqxrl/dqn_eqx_flatten.py](./pureeqxrl/dqn_eqx_flatten.py) Performance-optimized version of [./pureeqxrl/dqn_eqx.py], based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). (marginal performance gain)
+
+more to come ...
+
 
 ## Notes
 This is a personal learning project. Implementations may not be production-ready and are primarily focused on understanding RL concepts and JAX/Equinox programming patterns.
