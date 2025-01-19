@@ -2,10 +2,10 @@
 
 ⚠️ Work In Progress ⚠️
 
-This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax) and [Equinox](https://github.com/patrick-kidger/equinox). The main goal is to learn and understand both RL concepts and JAX/Equinox frameworks through hands-on implementation. 
+This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax) and [Equinox](https://github.com/patrick-kidger/equinox). The main goal is to learn and understand both RL concepts and JAX/Equinox frameworks through hands-on implementation, prioritizing clarity over performance optimizations for now.
 
 
-> **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative. This is mainly for learning purposes and to understand the differences between these approaches.
+> **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative. This is mainly for learning purposes and to understand the differences between these libraries.
 
 ## Overview
 This project focuses on reimplementing classic RL algorithms using JAX's functional programming paradigm and Equinox's neural network utilities. By porting existing implementations to JAX/Equinox, we can leverage:
