@@ -15,10 +15,6 @@ This is an active work in progress. Expect frequent changes, refactoring, and po
 more to come ...
 
 
-## Notes
-This is a personal learning project. Implementations may not be production-ready and are primarily focused on understanding RL concepts and JAX/Equinox programming patterns.
-
-
 ## Changelog
 
 - 2024.12.28
