@@ -203,7 +203,9 @@ def make_train(config):
 
             # STEP THE ENV
             rng, rng_a, rng_s = jax.random.split(rng, 3)
-            model = jax.tree.unflatten(treedef_model, train_state.flat_model)
+            model = jax.tree.unflatten(
+                train_state.treedef_model, train_state.flat_model
+            )
             q_vals = jax.vmap(model)(last_obs)
             action = eps_greedy_exploration(
                 rng_a, q_vals, train_state.timesteps
@@ -248,7 +250,9 @@ def make_train(config):
                     ).squeeze(axis=-1)
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
-                model = jax.tree.unflatten(treedef_model, train_state.flat_model)
+                model = jax.tree.unflatten(
+                    train_state.treedef_model, train_state.flat_model
+                )
 
                 loss, grads = jax.value_and_grad(_loss_fn)(model)
 
@@ -324,7 +328,7 @@ def make_train(config):
 
 def main():
 
-    with open("config.json", "r") as f:
+    with open("dqn_config.json", "r") as f:
         config = json.load(f)
 
     wandb.init(
@@ -340,17 +344,21 @@ def main():
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
-    # the complete computation as warmup round ;-)
-    _ = jax.block_until_ready(train_vjit(rngs))
+    if config["BENCHMARK"]:
+        # warmup
+        if config["BENCHMARK_WARMUP"]:
+            _ = jax.block_until_ready(train_vjit(rngs))
 
-    # getting serious ...
-    start = time.time()
-    m = jax.block_until_ready(train_vjit(rngs))
-    duration = time.time() - start
-
-    print(f"Duration: {duration:.2f} seconds")
-
-    print(m["metrics"]["returns"])
+        start = time.time()
+        durations = []
+        for _ in range(config["BENCHMARK_ROUNDS"]):
+            out = jax.block_until_ready(train_vjit(rngs))
+            durations.append(time.time() - start)
+            start = time.time()
+        average_duration = sum(durations) / len(durations)
+        print(f"Average Duration: {average_duration:.2f} seconds")
+    else:
+        _ = jax.block_until_ready(train_vjit(rng))
 
 
 if __name__ == "__main__":

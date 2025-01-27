@@ -145,6 +145,7 @@ class BraxGymnaxWrapper:
             shape=(self._env.action_size,),
         )
 
+
 class NavixGymnaxWrapper:
     def __init__(self, env_name):
         self._env = nx.make(env_name)

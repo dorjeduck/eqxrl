@@ -20,5 +20,9 @@
     "NUM_SEEDS": 1,
     "WANDB_MODE": "disabled",
     "ENTITY": "",
-    "PROJECT": ""
+    "PROJECT": "",
+    "DEBUG": false,
+    "BENCHMARK": true,
+    "BENCHMARK_WARMUP": true,
+    "BENCHMARK_ROUNDS": 3
 }
