@@ -4,16 +4,17 @@ This repository contains implementations of various reinforcement learning algor
 
 > **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative. This is mainly for learning purposes and to understand the differences between these libraries.
 
-## Current Status
-This is an active work in progress. Expect frequent changes, refactoring, and potential breaking changes. Some implementations may be incomplete or unoptimized.
 
 ## Implementations
 
-* [**dqn_eqx.py**](./pureeqxrl/dqn_eqx.py): Direct port of the [PureJaxRL DQN implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. 
-* [**dqn_eqx_flatten.py**](./pureeqxrl/dqn_eqx_flatten.py): Performance-optimized version of **dqn_eqx.py**, based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). (marginal performance gain)
+This is an active work in progress. Expect frequent refactoring. 
 
-* [**ppo_eqx.py**](./pureeqxrl/ppo_eqx.py): Direct port of the [PureJaxRL PPO implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo.py) from Flax/Linen to Equinox. 
-* [**ppo_eqx_flatten.py**](./pureeqxrl/ppo_eqx_flatten.py): Performance-optimized version of **ppo_eqx.py**, based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). (some performance gain)
+The `_flatten` implementations are performance optimized based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops).
+
+* [**dqn_eqx.py**](./pureeqxrl/dqn_eqx.py): Direct port of the [PureJaxRL DQN implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. (optimized version: [**dqn_eqx_flatten.py**](./pureeqxrl/dqn_eqx_flatten.py)) 
+
+* [**ppo_eqx.py**](./pureeqxrl/ppo_eqx.py): Direct port of the [PureJaxRL PPO implementation](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo.py) from Flax/Linen to Equinox. (optimized version: [**ppo_eqx_flatten.py**](./pureeqxrl/ppo_eqx_flatten.py)) 
+
 
 more to come ...
 
