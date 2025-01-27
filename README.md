@@ -20,8 +20,10 @@ more to come ...
 
 ## Changelog
 
+- 2025.01.27
+    - PureJaxRL PPO port added.
 - 2024.12.28
-    - Simple benchmark added.
+    - PureJaxRL DQN port added.
 - 2024.12.23
     - Initial commit.
 
