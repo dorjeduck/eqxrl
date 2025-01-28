@@ -17,7 +17,7 @@
     "ACTION_DIM": 2,
     "ANNEAL_LR": true,
     "DEBUG": false,
-    "BENCHMARK": true,
+    "BENCHMARK": false,
     "BENCHMARK_WARMUP": true,
     "BENCHMARK_ROUNDS": 5
 }

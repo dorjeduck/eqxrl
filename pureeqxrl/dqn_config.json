@@ -22,7 +22,7 @@
     "ENTITY": "",
     "PROJECT": "",
     "DEBUG": false,
-    "BENCHMARK": true,
+    "BENCHMARK": false,
     "BENCHMARK_WARMUP": true,
     "BENCHMARK_ROUNDS": 3
 }

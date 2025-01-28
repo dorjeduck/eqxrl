@@ -282,6 +282,15 @@ def make_train(config):
                         wandb.log(metrics)
 
                 jax.debug.callback(callback, metrics)
+            
+            # Debugging mode
+            if config.get("DEBUG"):
+
+                def callback(info):
+                    print(f"timesteps={info['timesteps']}, return={int(info['returns'])}")
+                  
+                jax.debug.callback(callback, metrics)
+
 
             runner_state = (train_state, buffer_state, env_state, obs, rng)
 
@@ -331,7 +340,7 @@ def main():
         average_duration = sum(durations) / len(durations)
         print(f"Average Duration: {average_duration:.2f} seconds")
     else:
-        _ = jax.block_until_ready(train_vjit(rng))
+        _ = jax.block_until_ready(train_vjit(rngs))
 
 
 if __name__ == "__main__":
