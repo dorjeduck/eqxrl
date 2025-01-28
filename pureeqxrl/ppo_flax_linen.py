@@ -10,7 +10,7 @@ from typing import Sequence, NamedTuple, Any
 from flax.training.train_state import TrainState
 import distrax
 import gymnax
-from wrappers_flax_linen import LogWrapper, FlattenObservationWrapper
+from pureeqxrl.wrappers import LogWrapper, FlattenObservationWrapper
 
 
 class ActorCritic(nn.Module):
