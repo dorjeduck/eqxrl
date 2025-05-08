@@ -83,7 +83,7 @@ def update_policy_eqx_flatten(state, treedef):
 
     actor = jax.tree.unflatten(treedef, leaf_values)
 
-    grads = jax.tree_util.tree_map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
+    grads = jax.tree_util.tree.map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
     updates, update_opt_state = optax.adam(1e-3).update(grads, opt_state)
     update_model = eqx.apply_updates(actor, updates)
 

@@ -49,7 +49,7 @@ def collect_experience_linen(state, env, env_params, actor):
 def update_policy_linen(state, _):
     params, opt_state, rng, env_state, obs = state
 
-    grads = jax.tree_util.tree_map(jnp.zeros_like, params)
+    grads = jax.tree_util.tree.map(jnp.zeros_like, params)
     updates, new_opt_state = optax.adam(1e-3).update(grads, opt_state)
     new_params = optax.apply_updates(params, updates)
 

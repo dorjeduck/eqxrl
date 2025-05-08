@@ -1,89 +1,59 @@
 import jax
 import jax.numpy as jnp
-
+import flax.linen as nn
+import numpy as np
 import optax
-import json
-import time
 from flax.linen.initializers import constant, orthogonal
-from typing import NamedTuple, Any
-from jaxtyping import PyTreeDef
-
+from typing import Sequence, NamedTuple, Any
 from flax.training.train_state import TrainState
 import distrax
-import gymnax
-from wrappers import LogWrapper, FlattenObservationWrapper
+from wrappers import (
+    LogWrapper,
+    BraxGymnaxWrapper,
+    VecEnv,
+    NormalizeVecObservation,
+    NormalizeVecReward,
+    ClipAction,
+)
 
-from dataclasses import replace
-import equinox as eqx
 
+class ActorCritic(nn.Module):
+    action_dim: Sequence[int]
+    activation: str = "tanh"
 
-class ActorCritic(eqx.Module):
-
-    activation_fn: Any = eqx.static_field()
-    actor_mean_layer1: eqx.nn.Linear
-    actor_mean_layer2: eqx.nn.Linear
-    actor_mean_layer3: eqx.nn.Linear
-    critic_layer1: eqx.nn.Linear
-    critic_layer2: eqx.nn.Linear
-    critic_layer3: eqx.nn.Linear
-
-    def __init__(self, obs_dim: int, action_dim: int, activation, key):
-
-        self.activation_fn = jax.nn.relu if activation == "relu" else jax.nn.tanh
-
-        keys = jax.random.split(key, 6)
-
-        self.actor_mean_layer1 = eqx.nn.Linear(obs_dim, 64, key=keys[0])
-        self.actor_mean_layer2 = eqx.nn.Linear(64, 64, key=keys[1])
-        self.actor_mean_layer3 = eqx.nn.Linear(64, action_dim, key=keys[2])
-        self.critic_layer1 = eqx.nn.Linear(obs_dim, 64, key=keys[3])
-        self.critic_layer2 = eqx.nn.Linear(64, 64, key=keys[4])
-        self.critic_layer3 = eqx.nn.Linear(64, 1, key=keys[5])
-
+    @nn.compact
     def __call__(self, x):
+        if self.activation == "relu":
+            activation = nn.relu
+        else:
+            activation = nn.tanh
+        actor_mean = nn.Dense(
+            256, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(x)
+        actor_mean = activation(actor_mean)
+        actor_mean = nn.Dense(
+            256, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(actor_mean)
+        actor_mean = activation(actor_mean)
+        actor_mean = nn.Dense(
+            self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0)
+        )(actor_mean)
+        actor_logtstd = self.param("log_std", nn.initializers.zeros, (self.action_dim,))
+        pi = distrax.MultivariateNormalDiag(actor_mean, jnp.exp(actor_logtstd))
 
-        actor_mean = self.activation_fn(self.actor_mean_layer1(x))
-        actor_mean = self.activation_fn(self.actor_mean_layer2(actor_mean))
-        actor_mean = self.actor_mean_layer3(actor_mean)
-        pi = distrax.Categorical(logits=actor_mean)
-
-        critic = self.activation_fn(self.critic_layer1(x))
-        critic = self.activation_fn(self.critic_layer2(critic))
-        critic = self.critic_layer3(critic)
-
-        return pi, jnp.squeeze(critic, axis=-1)
-
-
-class TrainState(eqx.Module):
-    flat_model: list
-    flat_opt_state: list
-
-    treedef_model: PyTreeDef = eqx.static_field()
-    treedef_opt_state: PyTreeDef = eqx.static_field()
-
-    tx: optax.GradientTransformation = eqx.static_field()
-
-    step: int
-
-    def apply_gradients(self, grads):
-
-        model = jax.tree.unflatten(self.treedef_model, self.flat_model)
-        opt_state = jax.tree.unflatten(self.treedef_opt_state, self.flat_opt_state)
-
-        updates, update_opt_state = self.tx.update(grads, opt_state)
-        update_model = eqx.apply_updates(model, updates)
-
-        flat_update_model = jax.tree_util.tree_leaves(update_model)
-        flat_update_opt_state = jax.tree_util.tree_leaves(update_opt_state)
-
-        return self.replace(
-            flat_model=flat_update_model,
-            flat_opt_state=flat_update_opt_state,
-            step=self.step + 1,
+        critic = nn.Dense(
+            256, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(x)
+        critic = activation(critic)
+        critic = nn.Dense(
+            256, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0)
+        )(critic)
+        critic = activation(critic)
+        critic = nn.Dense(1, kernel_init=orthogonal(1.0), bias_init=constant(0.0))(
+            critic
         )
 
-    def replace(self, **kwargs):
-        return replace(self, **kwargs)
+        return pi, jnp.squeeze(critic, axis=-1)
 
 
 class Transition(NamedTuple):
@@ -103,9 +73,13 @@ def make_train(config):
     config["MINIBATCH_SIZE"] = (
         config["NUM_ENVS"] * config["NUM_STEPS"] // config["NUM_MINIBATCHES"]
     )
-    env, env_params = gymnax.make(config["ENV_NAME"])
-    env = FlattenObservationWrapper(env)
+    env, env_params = BraxGymnaxWrapper(config["ENV_NAME"]), None
     env = LogWrapper(env)
+    env = ClipAction(env)
+    env = VecEnv(env)
+    if config["NORMALIZE_ENV"]:
+        env = NormalizeVecObservation(env)
+        env = NormalizeVecReward(env, config["GAMMA"])
 
     def linear_schedule(count):
         frac = (
@@ -117,16 +91,12 @@ def make_train(config):
 
     def train(rng):
         # INIT NETWORK
-
-        rng, _rng = jax.random.split(rng)
-
-        model = ActorCritic(
-            obs_dim=config["OBS_DIM"],
-            action_dim=config["ACTION_DIM"],
-            activation=config["ACTIVATION"],
-            key=_rng,
+        network = ActorCritic(
+            env.action_space(env_params).shape[0], activation=config["ACTIVATION"]
         )
-
+        rng, _rng = jax.random.split(rng)
+        init_x = jnp.zeros(env.observation_space(env_params).shape)
+        network_params = network.init(_rng, init_x)
         if config["ANNEAL_LR"]:
             tx = optax.chain(
                 optax.clip_by_global_norm(config["MAX_GRAD_NORM"]),
@@ -137,25 +107,16 @@ def make_train(config):
                 optax.clip_by_global_norm(config["MAX_GRAD_NORM"]),
                 optax.adam(config["LR"], eps=1e-5),
             )
-
-        opt_state = tx.init(eqx.filter(model, eqx.is_array))
-
-        flat_model, treedef_model = jax.tree.flatten(model)
-        flat_opt_state, treedef_opt_state = jax.tree_util.tree_flatten(opt_state)
-
-        train_state = TrainState(
-            flat_model=flat_model,
-            flat_opt_state=flat_opt_state,
-            treedef_model=treedef_model,
-            treedef_opt_state=treedef_opt_state,
+        train_state = TrainState.create(
+            apply_fn=network.apply,
+            params=network_params,
             tx=tx,
-            step=0,
         )
 
         # INIT ENV
         rng, _rng = jax.random.split(rng)
         reset_rng = jax.random.split(_rng, config["NUM_ENVS"])
-        obsv, env_state = jax.vmap(env.reset, in_axes=(0, None))(reset_rng, env_params)
+        obsv, env_state = env.reset(reset_rng, env_params)
 
         # TRAIN LOOP
         def _update_step(runner_state, unused):
@@ -165,19 +126,16 @@ def make_train(config):
 
                 # SELECT ACTION
                 rng, _rng = jax.random.split(rng)
-                model = jax.tree.unflatten(
-                    train_state.treedef_model, train_state.flat_model
-                )
-                pi, value = jax.vmap(model)(last_obs)
+                pi, value = network.apply(train_state.params, last_obs)
                 action = pi.sample(seed=_rng)
                 log_prob = pi.log_prob(action)
 
                 # STEP ENV
                 rng, _rng = jax.random.split(rng)
                 rng_step = jax.random.split(_rng, config["NUM_ENVS"])
-                obsv, env_state, reward, done, info = jax.vmap(
-                    env.step, in_axes=(0, 0, 0, None)
-                )(rng_step, env_state, action, env_params)
+                obsv, env_state, reward, done, info = env.step(
+                    rng_step, env_state, action, env_params
+                )
                 transition = Transition(
                     done, action, value, reward, log_prob, last_obs, info
                 )
@@ -190,12 +148,7 @@ def make_train(config):
 
             # CALCULATE ADVANTAGE
             train_state, env_state, last_obs, rng = runner_state
-
-            model = jax.tree.unflatten(
-                train_state.treedef_model, train_state.flat_model
-            )
-
-            _, last_val = jax.vmap(model)(last_obs)
+            _, last_val = network.apply(train_state.params, last_obs)
 
             def _calculate_gae(traj_batch, last_val):
                 def _get_advantages(gae_and_next_value, transition):
@@ -228,9 +181,9 @@ def make_train(config):
                 def _update_minbatch(train_state, batch_info):
                     traj_batch, advantages, targets = batch_info
 
-                    def _loss_fn(model, traj_batch, gae, targets):
+                    def _loss_fn(params, traj_batch, gae, targets):
                         # RERUN NETWORK
-                        pi, value = jax.vmap(model)(traj_batch.obs)
+                        pi, value = network.apply(params, traj_batch.obs)
                         log_prob = pi.log_prob(traj_batch.action)
 
                         # CALCULATE VALUE LOSS
@@ -267,18 +220,14 @@ def make_train(config):
                         return total_loss, (value_loss, loss_actor, entropy)
 
                     grad_fn = jax.value_and_grad(_loss_fn, has_aux=True)
-
-                    model = jax.tree.unflatten(
-                        train_state.treedef_model, train_state.flat_model
+                    total_loss, grads = grad_fn(
+                        train_state.params, traj_batch, advantages, targets
                     )
-
-                    total_loss, grads = grad_fn(model, traj_batch, advantages, targets)
                     train_state = train_state.apply_gradients(grads=grads)
                     return train_state, total_loss
 
                 train_state, traj_batch, advantages, targets, rng = update_state
                 rng, _rng = jax.random.split(rng)
-                # Batching and Shuffling
                 batch_size = config["MINIBATCH_SIZE"] * config["NUM_MINIBATCHES"]
                 assert (
                     batch_size == config["NUM_STEPS"] * config["NUM_ENVS"]
@@ -291,7 +240,6 @@ def make_train(config):
                 shuffled_batch = jax.tree_util.tree.map(
                     lambda x: jnp.take(x, permutation, axis=0), batch
                 )
-                # Mini-batch Updates
                 minibatches = jax.tree_util.tree.map(
                     lambda x: jnp.reshape(
                         x, [config["NUM_MINIBATCHES"], -1] + list(x.shape[1:])
@@ -304,7 +252,6 @@ def make_train(config):
                 update_state = (train_state, traj_batch, advantages, targets, rng)
                 return update_state, total_loss
 
-            # Updating Training State and Metrics:
             update_state = (train_state, traj_batch, advantages, targets, rng)
             update_state, loss_info = jax.lax.scan(
                 _update_epoch, update_state, None, config["UPDATE_EPOCHS"]
@@ -312,8 +259,6 @@ def make_train(config):
             train_state = update_state[0]
             metric = traj_batch.info
             rng = update_state[-1]
-
-            # Debugging mode
             if config.get("DEBUG"):
 
                 def callback(info):
@@ -344,25 +289,25 @@ def make_train(config):
 
 
 if __name__ == "__main__":
-
-    with open("ppo_config.json", "r") as f:
-        config = json.load(f)
-
+    config = {
+        "LR": 3e-4,
+        "NUM_ENVS": 2048,
+        "NUM_STEPS": 10,
+        "TOTAL_TIMESTEPS": 5e7,
+        "UPDATE_EPOCHS": 4,
+        "NUM_MINIBATCHES": 32,
+        "GAMMA": 0.99,
+        "GAE_LAMBDA": 0.95,
+        "CLIP_EPS": 0.2,
+        "ENT_COEF": 0.0,
+        "VF_COEF": 0.5,
+        "MAX_GRAD_NORM": 0.5,
+        "ACTIVATION": "tanh",
+        "ENV_NAME": "hopper",
+        "ANNEAL_LR": False,
+        "NORMALIZE_ENV": True,
+        "DEBUG": True,
+    }
     rng = jax.random.PRNGKey(30)
     train_jit = jax.jit(make_train(config))
-
-    if config["BENCHMARK"]:
-        # warmup
-        if config["BENCHMARK_WARMUP"]:
-            _ = jax.block_until_ready(train_jit(rng))
-
-        start = time.time()
-        durations = []
-        for _ in range(config["BENCHMARK_ROUNDS"]):
-            out = jax.block_until_ready(train_jit(rng))
-            durations.append(time.time() - start)
-            start = time.time()
-        average_duration = sum(durations) / len(durations)
-        print(f"Average Duration: {average_duration:.2f} seconds")
-    else:
-        _ = jax.block_until_ready(train_jit(rng))
+    out = train_jit(rng)
