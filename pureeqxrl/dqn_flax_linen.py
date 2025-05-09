@@ -246,8 +246,10 @@ def make_train(config):
             if config.get("DEBUG"):
 
                 def callback(info):
-                    print(f"timesteps={info['timesteps']}, return={int(info['returns'])}")
-                  
+                    print(
+                        f"timesteps={info['timesteps']}, return={int(info['returns'])}"
+                    )
+
                 jax.debug.callback(callback, metrics)
 
             runner_state = (train_state, buffer_state, env_state, obs, rng)
@@ -280,7 +282,7 @@ def main():
         mode=config["WANDB_MODE"],
     )
 
-    rng = jax.random.PRNGKey(config["SEED"])
+    rng = jax.random.key(config["SEED"])
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 

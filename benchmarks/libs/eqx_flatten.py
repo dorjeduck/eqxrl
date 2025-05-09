@@ -83,11 +83,11 @@ def update_policy_eqx_flatten(state, treedef):
 
     actor = jax.tree.unflatten(treedef, leaf_values)
 
-    grads = jax.tree_util.tree.map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
+    grads = jax.tree.map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
     updates, update_opt_state = optax.adam(1e-3).update(grads, opt_state)
     update_model = eqx.apply_updates(actor, updates)
 
-    update_leaf_values = jax.tree_util.tree_leaves(update_model)
+    update_leaf_values = jax.tree.leaves(update_model)
 
     return TrainingStateEqxFlatten(
         update_leaf_values, update_opt_state, rng, env_state, obs

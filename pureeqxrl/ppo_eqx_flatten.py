@@ -73,8 +73,8 @@ class TrainState(eqx.Module):
         updates, update_opt_state = self.tx.update(grads, opt_state)
         update_model = eqx.apply_updates(model, updates)
 
-        flat_update_model = jax.tree_util.tree_leaves(update_model)
-        flat_update_opt_state = jax.tree_util.tree_leaves(update_opt_state)
+        flat_update_model = jax.tree.leaves(update_model)
+        flat_update_opt_state = jax.tree.leaves(update_opt_state)
 
         return self.replace(
             flat_model=flat_update_model,
@@ -141,7 +141,7 @@ def make_train(config):
         opt_state = tx.init(eqx.filter(model, eqx.is_array))
 
         flat_model, treedef_model = jax.tree.flatten(model)
-        flat_opt_state, treedef_opt_state = jax.tree_util.tree_flatten(opt_state)
+        flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
 
         train_state = TrainState(
             flat_model=flat_model,
@@ -285,14 +285,14 @@ def make_train(config):
                 ), "batch size must be equal to number of steps * number of envs"
                 permutation = jax.random.permutation(_rng, batch_size)
                 batch = (traj_batch, advantages, targets)
-                batch = jax.tree_util.tree.map(
+                batch = jax.tree.map(
                     lambda x: x.reshape((batch_size,) + x.shape[2:]), batch
                 )
-                shuffled_batch = jax.tree_util.tree.map(
+                shuffled_batch = jax.tree.map(
                     lambda x: jnp.take(x, permutation, axis=0), batch
                 )
                 # Mini-batch Updates
-                minibatches = jax.tree_util.tree.map(
+                minibatches = jax.tree.map(
                     lambda x: jnp.reshape(
                         x, [config["NUM_MINIBATCHES"], -1] + list(x.shape[1:])
                     ),
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     with open("ppo_config.json", "r") as f:
         config = json.load(f)
 
-    rng = jax.random.PRNGKey(30)
+    rng = jax.random.key(30)
     train_jit = jax.jit(make_train(config))
 
     if config["BENCHMARK"]:

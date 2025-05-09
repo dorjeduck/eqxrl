@@ -70,7 +70,7 @@ def collect_experience_eqx(state, env, env_params, _):
 def update_policy_eqx(state):
     actor, opt_state, rng, env_state, obs = state
 
-    grads = jax.tree_util.tree.map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
+    grads = jax.tree.map(jnp.zeros_like, eqx.filter(actor, eqx.is_array))
     updates, new_opt_state = optax.adam(1e-3).update(grads, opt_state)
     new_actor = eqx.apply_updates(actor, updates)
 

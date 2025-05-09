@@ -62,9 +62,8 @@ class TrainState(eqx.Module):
         updates, update_opt_state = self.tx.update(grads, opt_state)
         update_model = eqx.apply_updates(model, updates)
 
-        flat_update_model = jax.tree_util.tree_leaves(update_model)
-        flat_update_opt_state = jax.tree_util.tree_leaves(update_opt_state)
-
+        flat_update_model = jax.tree.leaves(update_model)
+        flat_update_opt_state = jax.tree.leaves(update_opt_state)
 
         return self.replace(
             flat_model=flat_update_model,
@@ -157,8 +156,7 @@ def make_train(config):
 
         flat_model, treedef_model = jax.tree.flatten(model)
         flat_target_model, _ = jax.tree.flatten(target_model)
-        flat_opt_state, treedef_opt_state = jax.tree_util.tree_flatten(opt_state)
-
+        flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
 
         train_state = CustomTrainState(
             flat_model=flat_model,
@@ -251,7 +249,7 @@ def make_train(config):
                         axis=-1,
                     ).squeeze(axis=-1)
                     return jnp.mean((chosen_action_qvals - target) ** 2)
-                
+
                 model = jax.tree.unflatten(
                     train_state.treedef_model, train_state.flat_model
                 )

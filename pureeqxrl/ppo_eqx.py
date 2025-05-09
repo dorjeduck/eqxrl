@@ -250,14 +250,14 @@ def make_train(config):
                 ), "batch size must be equal to number of steps * number of envs"
                 permutation = jax.random.permutation(_rng, batch_size)
                 batch = (traj_batch, advantages, targets)
-                batch = jax.tree_util.tree.map(
+                batch = jax.tree.map(
                     lambda x: x.reshape((batch_size,) + x.shape[2:]), batch
                 )
-                shuffled_batch = jax.tree_util.tree.map(
+                shuffled_batch = jax.tree.map(
                     lambda x: jnp.take(x, permutation, axis=0), batch
                 )
                 # Mini-batch Updates
-                minibatches = jax.tree_util.tree.map(
+                minibatches = jax.tree.map(
                     lambda x: jnp.reshape(
                         x, [config["NUM_MINIBATCHES"], -1] + list(x.shape[1:])
                     ),
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     with open("ppo_config.json", "r") as f:
         config = json.load(f)
 
-    rng = jax.random.PRNGKey(30)
+    rng = jax.random.key(30)
     train_jit = jax.jit(make_train(config))
 
     if config["BENCHMARK"]:

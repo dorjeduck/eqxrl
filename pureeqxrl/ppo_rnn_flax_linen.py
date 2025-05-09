@@ -1,5 +1,7 @@
 import jax
 import jax.numpy as jnp
+import json
+
 import flax.linen as nn
 import numpy as np
 import optax
@@ -182,15 +184,33 @@ def make_train(config):
             ac_in = (last_obs[np.newaxis, :], last_done[np.newaxis, :])
             _, _, last_val = network.apply(train_state.params, hstate, ac_in)
             last_val = last_val.squeeze(0)
+
             def _calculate_gae(traj_batch, last_val, last_done):
                 def _get_advantages(carry, transition):
                     gae, next_value, next_done = carry
-                    done, value, reward = transition.done, transition.value, transition.reward 
-                    delta = reward + config["GAMMA"] * next_value * (1 - next_done) - value
-                    gae = delta + config["GAMMA"] * config["GAE_LAMBDA"] * (1 - next_done) * gae
+                    done, value, reward = (
+                        transition.done,
+                        transition.value,
+                        transition.reward,
+                    )
+                    delta = (
+                        reward + config["GAMMA"] * next_value * (1 - next_done) - value
+                    )
+                    gae = (
+                        delta
+                        + config["GAMMA"] * config["GAE_LAMBDA"] * (1 - next_done) * gae
+                    )
                     return (gae, value, done), gae
-                _, advantages = jax.lax.scan(_get_advantages, (jnp.zeros_like(last_val), last_val, last_done), traj_batch, reverse=True, unroll=16)
+
+                _, advantages = jax.lax.scan(
+                    _get_advantages,
+                    (jnp.zeros_like(last_val), last_val, last_done),
+                    traj_batch,
+                    reverse=True,
+                    unroll=16,
+                )
                 return advantages, advantages + traj_batch.value
+
             advantages, targets = _calculate_gae(traj_batch, last_val, last_done)
 
             # UPDATE NETWORK
@@ -258,11 +278,11 @@ def make_train(config):
                 permutation = jax.random.permutation(_rng, config["NUM_ENVS"])
                 batch = (init_hstate, traj_batch, advantages, targets)
 
-                shuffled_batch = jax.tree_util.tree.map(
+                shuffled_batch = jax.tree.map(
                     lambda x: jnp.take(x, permutation, axis=1), batch
                 )
 
-                minibatches = jax.tree_util.tree.map(
+                minibatches = jax.tree.map(
                     lambda x: jnp.swapaxes(
                         jnp.reshape(
                             x,
@@ -340,23 +360,8 @@ def make_train(config):
 
 
 if __name__ == "__main__":
-    config = {
-        "LR": 2.5e-4,
-        "NUM_ENVS": 4,
-        "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 5e5,
-        "UPDATE_EPOCHS": 4,
-        "NUM_MINIBATCHES": 4,
-        "GAMMA": 0.99,
-        "GAE_LAMBDA": 0.95,
-        "CLIP_EPS": 0.2,
-        "ENT_COEF": 0.01,
-        "VF_COEF": 0.5,
-        "MAX_GRAD_NORM": 0.5,
-        "ENV_NAME": "CartPole-v1",
-        "ANNEAL_LR": True,
-        "DEBUG": True,
-    }
+    with open("ppo_rnn_config.json", "r") as f:
+        config = json.load(f)
 
     rng = jax.random.PRNGKey(30)
     train_jit = jax.jit(make_train(config))

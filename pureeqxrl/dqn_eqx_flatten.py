@@ -63,8 +63,8 @@ class TrainState(eqx.Module):
         updates, update_opt_state = self.tx.update(grads, opt_state)
         update_model = eqx.apply_updates(model, updates)
 
-        flat_update_model = jax.tree_util.tree_leaves(update_model)
-        flat_update_opt_state = jax.tree_util.tree_leaves(update_opt_state)
+        flat_update_model = jax.tree.leaves(update_model)
+        flat_update_opt_state = jax.tree.leaves(update_opt_state)
 
         return self.replace(
             flat_model=flat_update_model,
@@ -125,7 +125,7 @@ def make_train(config):
             sample=jax.jit(buffer.sample),
             can_sample=jax.jit(buffer.can_sample),
         )
-        rng = jax.random.PRNGKey(0)  # use a dummy rng here
+        rng = jax.random.key(0)  # use a dummy rng here
         _action = basic_env.action_space().sample(rng)
         _, _env_state = env.reset(rng, env_params)
         _obs, _, _reward, _done, _ = env.step(rng, _env_state, _action, env_params)
@@ -157,7 +157,7 @@ def make_train(config):
 
         flat_model, treedef_model = jax.tree.flatten(model)
         flat_target_model, _ = jax.tree.flatten(target_model)
-        flat_opt_state, treedef_opt_state = jax.tree_util.tree_flatten(opt_state)
+        flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
 
         train_state = CustomTrainState(
             flat_model=flat_model,
@@ -350,7 +350,7 @@ def main():
         mode=config["WANDB_MODE"],
     )
 
-    rng = jax.random.PRNGKey(config["SEED"])
+    rng = jax.random.key(config["SEED"])
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_vjit = jax.jit(jax.vmap(make_train(config)))
 
