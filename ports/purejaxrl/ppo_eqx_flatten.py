@@ -345,7 +345,7 @@ def make_train(config):
 
 if __name__ == "__main__":
 
-    with open("ppo_config.json", "r") as f:
+    with open("./config/ppo_config.json", "r") as f:
         config = json.load(f)
 
     rng = jax.random.key(30)

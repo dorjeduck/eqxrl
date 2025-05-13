@@ -172,8 +172,8 @@ cython_debug/
 
 ## my stuff
 
+*_old.py
 x*.py
-benchmarks-test/
-cleaneqxrl/
-simpleeqxrl/
+lab/
 repos
+ports/cleanrl/runs

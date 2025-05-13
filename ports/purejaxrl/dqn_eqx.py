@@ -37,7 +37,7 @@ class QNetwork(eqx.Module):
         self.layer2 = eqx.nn.Linear(120, 84, key=keys[1])
         self.layer3 = eqx.nn.Linear(84, action_dim, key=keys[2])
 
-    def __call__(self, x):
+    def __call__(self, x: jnp.ndarray):
         x = jax.nn.relu(self.layer1(x))
         x = jax.nn.relu(self.layer2(x))
         x = self.layer3(x)
@@ -255,12 +255,8 @@ def make_train(config):
             train_state = jax.lax.cond(
                 train_state.timesteps % config["TARGET_UPDATE_INTERVAL"] == 0,
                 lambda train_state: train_state.replace(
-                    target_model=jax.tree.map(
-                        lambda source, target: optax.incremental_update(
-                            source, target, config["TAU"]
-                        ),
-                        train_state.model,
-                        train_state.target_model,
+                    target_model=optax.incremental_update(
+                        train_state.model, train_state.target_model, config["TAU"]
                     )
                 ),
                 lambda train_state: train_state,
@@ -282,15 +278,16 @@ def make_train(config):
                         wandb.log(metrics)
 
                 jax.debug.callback(callback, metrics)
-            
+
             # Debugging mode
             if config.get("DEBUG"):
 
                 def callback(info):
-                    print(f"timesteps={info['timesteps']}, return={int(info['returns'])}")
-                  
-                jax.debug.callback(callback, metrics)
+                    print(
+                        f"timesteps={info['timesteps']}, return={int(info['returns'])}"
+                    )
 
+                jax.debug.callback(callback, metrics)
 
             runner_state = (train_state, buffer_state, env_state, obs, rng)
 
@@ -310,7 +307,7 @@ def make_train(config):
 
 def main():
 
-    with open("dqn_config.json", "r") as f:
+    with open("./config/dqn_config.json", "r") as f:
         config = json.load(f)
 
     wandb.init(

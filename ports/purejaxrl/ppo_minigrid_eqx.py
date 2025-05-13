@@ -2,23 +2,21 @@
 PureJaxRL version of CleanRL's DQN: https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py
 """
 
-import time
-import json
-import warnings
-
 import jax
 import jax.numpy as jnp
+
+import json
+
 import chex
-import flax
 import wandb
 import optax
+import equinox as eqx
 
-from flax import linen as nn
-from flax.training.train_state import TrainState
 from gymnax.wrappers.purerl import FlattenObservationWrapper, LogWrapper
 import gymnax
 import flashbax as fbx
-
+import warnings
+from dataclasses import replace
 
 # Enable 64-bit mode in JAX
 jax.config.update("jax_enable_x64", True)
@@ -27,15 +25,43 @@ jax.config.update("jax_enable_x64", True)
 warnings.filterwarnings("ignore", message="Setting max_size dynamically*")
 
 
-class QNetwork(nn.Module):
-    action_dim: int
+class QNetwork(eqx.Module):
+    layer1: eqx.nn.Linear
+    layer2: eqx.nn.Linear
+    layer3: eqx.nn.Linear
 
-    @nn.compact
-    def __call__(self, x: jnp.ndarray):
-        x = nn.relu(nn.Dense(120)(x))
-        x = nn.relu(nn.Dense(84)(x))
-        x = nn.Dense(self.action_dim)(x)
+    def __init__(self, obs_dim: int, action_dim: int, key):
+        keys = jax.random.split(key, 3)
+        self.layer1 = eqx.nn.Linear(obs_dim, 120, key=keys[0])
+        self.layer2 = eqx.nn.Linear(120, 84, key=keys[1])
+        self.layer3 = eqx.nn.Linear(84, action_dim, key=keys[2])
+
+    def __call__(self, x):
+        x = jax.nn.relu(self.layer1(x))
+        x = jax.nn.relu(self.layer2(x))
+        x = self.layer3(x)
         return x
+
+
+class TrainState(eqx.Module):
+    model: eqx.Module
+    opt_state: optax.OptState
+    tx: optax.GradientTransformation = eqx.static_field()
+    step: int
+
+    def apply_gradients(self, grads):
+        # filtered_model = eqx.filter(self.model, eqx.is_array)
+        updates, new_opt_state = self.tx.update(grads, self.opt_state)
+        new_model = eqx.apply_updates(self.model, updates)
+
+        return self.replace(
+            model=new_model,
+            opt_state=new_opt_state,
+            step=self.step + 1,
+        )
+
+    def replace(self, **kwargs):
+        return replace(self, **kwargs)
 
 
 @chex.dataclass(frozen=True)
@@ -47,7 +73,7 @@ class TimeStep:
 
 
 class CustomTrainState(TrainState):
-    target_network_params: flax.core.FrozenDict
+    target_model: eqx.Module
     timesteps: int
     n_updates: int
 
@@ -95,10 +121,19 @@ def make_train(config):
         buffer_state = buffer.init(_timestep)
 
         # INIT NETWORK AND OPTIMIZER
-        network = QNetwork(action_dim=env.action_space(env_params).n)
         rng, _rng = jax.random.split(rng)
-        init_x = jnp.zeros(env.observation_space(env_params).shape)
-        network_params = network.init(_rng, init_x)
+
+        model = QNetwork(
+            obs_dim=config["OBS_DIM"],  # env.observation_space(env_params).shape[0],
+            action_dim=config["ACTION_DIM"],  # env.action_space(env_params).n,
+            key=_rng,
+        )
+
+        target_model = QNetwork(
+            obs_dim=config["OBS_DIM"],
+            action_dim=config["ACTION_DIM"],
+            key=_rng,
+        )
 
         def linear_schedule(count):
             frac = 1.0 - (count / config["NUM_UPDATES"])
@@ -106,12 +141,14 @@ def make_train(config):
 
         lr = linear_schedule if config.get("LR_LINEAR_DECAY", False) else config["LR"]
         tx = optax.adam(learning_rate=lr)
+        opt_state = tx.init(eqx.filter(model, eqx.is_array))
 
-        train_state = CustomTrainState.create(
-            apply_fn=network.apply,
-            params=network_params,
-            target_network_params=jax.tree.map(lambda x: jnp.copy(x), network_params),
+        train_state = CustomTrainState(
+            model=model,
             tx=tx,
+            opt_state=opt_state,
+            target_model=target_model,
+            step=0,
             timesteps=0,
             n_updates=0,
         )
@@ -148,7 +185,8 @@ def make_train(config):
 
             # STEP THE ENV
             rng, rng_a, rng_s = jax.random.split(rng, 3)
-            q_vals = network.apply(train_state.params, last_obs)
+            q_vals = jax.vmap(train_state.model)(last_obs)
+
             action = eps_greedy_exploration(
                 rng_a, q_vals, train_state.timesteps
             )  # explore with epsilon greedy_exploration
@@ -168,8 +206,8 @@ def make_train(config):
 
                 learn_batch = buffer.sample(buffer_state, rng).experience
 
-                q_next_target = network.apply(
-                    train_state.target_network_params, learn_batch.second.obs
+                q_next_target = jax.vmap(train_state.target_model)(
+                    learn_batch.second.obs
                 )  # (batch_size, num_actions)
                 q_next_target = jnp.max(q_next_target, axis=-1)  # (batch_size,)
                 target = (
@@ -177,10 +215,10 @@ def make_train(config):
                     + (1 - learn_batch.first.done) * config["GAMMA"] * q_next_target
                 )
 
-                def _loss_fn(params):
-                    q_vals = network.apply(
-                        params, learn_batch.first.obs
-                    )  # (batch_size, num_actions)
+                def _loss_fn(model):
+                    # (batch_size, num_actions)
+                    q_vals = jax.vmap(model)(learn_batch.first.obs)
+
                     chosen_action_qvals = jnp.take_along_axis(
                         q_vals,
                         jnp.expand_dims(learn_batch.first.action, axis=-1),
@@ -188,9 +226,9 @@ def make_train(config):
                     ).squeeze(axis=-1)
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
-                loss, grads = jax.value_and_grad(_loss_fn)(train_state.params)
-                train_state = train_state.apply_gradients(grads=grads)
+                loss, grads = jax.value_and_grad(_loss_fn)(train_state.model)
 
+                train_state = train_state.apply_gradients(grads=grads)
                 train_state = train_state.replace(n_updates=train_state.n_updates + 1)
                 return train_state, loss
 
@@ -213,13 +251,12 @@ def make_train(config):
             )
 
             # update target network
+            
             train_state = jax.lax.cond(
                 train_state.timesteps % config["TARGET_UPDATE_INTERVAL"] == 0,
                 lambda train_state: train_state.replace(
-                    target_network_params=optax.incremental_update(
-                        train_state.params,
-                        train_state.target_network_params,
-                        config["TAU"],
+                    target_model=optax.incremental_update(
+                        train_state.model, train_state.target_model, config["TAU"]
                     )
                 ),
                 lambda train_state: train_state,
@@ -242,16 +279,6 @@ def make_train(config):
 
                 jax.debug.callback(callback, metrics)
 
-            # Debugging mode
-            if config.get("DEBUG"):
-
-                def callback(info):
-                    print(
-                        f"timesteps={info['timesteps']}, return={int(info['returns'])}"
-                    )
-
-                jax.debug.callback(callback, metrics)
-
             runner_state = (train_state, buffer_state, env_state, obs, rng)
 
             return runner_state, metrics
@@ -270,7 +297,7 @@ def make_train(config):
 
 def main():
 
-    with open("dqn_config.json", "r") as f:
+    with open("./config/ppo_minigrid_config.json", "r") as f:
         config = json.load(f)
 
     wandb.init(
@@ -282,25 +309,10 @@ def main():
         mode=config["WANDB_MODE"],
     )
 
-    rng = jax.random.key(config["SEED"])
+    rng = jax.random.PRNGKey(config["SEED"])
     rngs = jax.random.split(rng, config["NUM_SEEDS"])
     train_vjit = jax.jit(jax.vmap(make_train(config)))
-
-    if config["BENCHMARK"]:
-        # warmup
-        if config["BENCHMARK_WARMUP"]:
-            _ = jax.block_until_ready(train_vjit(rngs))
-
-        start = time.time()
-        durations = []
-        for _ in range(config["BENCHMARK_ROUNDS"]):
-            out = jax.block_until_ready(train_vjit(rngs))
-            durations.append(time.time() - start)
-            start = time.time()
-        average_duration = sum(durations) / len(durations)
-        print(f"Average Duration: {average_duration:.2f} seconds")
-    else:
-        _ = jax.block_until_ready(train_vjit(rngs))
+    outs = jax.block_until_ready(train_vjit(rngs))
 
 
 if __name__ == "__main__":

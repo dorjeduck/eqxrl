@@ -282,12 +282,10 @@ def make_train(config):
             train_state = jax.lax.cond(
                 train_state.timesteps % config["TARGET_UPDATE_INTERVAL"] == 0,
                 lambda train_state: train_state.replace(
-                    flat_target_model=jax.tree.map(
-                        lambda source, target: optax.incremental_update(
-                            source, target, config["TAU"]
-                        ),
+                    flat_target_model=optax.incremental_update(
                         train_state.flat_model,
                         train_state.flat_target_model,
+                        config["TAU"],
                     )
                 ),
                 lambda train_state: train_state,
@@ -338,7 +336,7 @@ def make_train(config):
 
 def main():
 
-    with open("dqn_config.json", "r") as f:
+    with open("./config/dqn_config.json", "r") as f:
         config = json.load(f)
 
     wandb.init(

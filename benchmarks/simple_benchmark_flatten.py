@@ -139,7 +139,7 @@ def profile_training(steps=100, runs=10):
     ]
 
     # Print and write results to Markdown file
-    with open("benchmark_results.md", "w") as f:
+    with open("./config/benchmark_results.md", "w") as f:
         print("\nBenchmarking Results Comparison:")
         print(
             f"{'Metric':<25} {'Linen (ms)':<15} {'Equinox (ms)':<15} {'Difference (%)':<15}"

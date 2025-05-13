@@ -2,21 +2,22 @@
 PureJaxRL version of CleanRL's DQN: https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py
 """
 
-import os
 import jax
 import jax.numpy as jnp
+from jaxtyping import PyTreeDef
+
 import json
 
 import chex
-import flax
 import wandb
 import optax
-import flax.linen as nn
-from flax.training.train_state import TrainState
+import equinox as eqx
+
 from gymnax.wrappers.purerl import FlattenObservationWrapper, LogWrapper
 import gymnax
 import flashbax as fbx
 import warnings
+from dataclasses import replace
 
 # Enable 64-bit mode in JAX
 jax.config.update("jax_enable_x64", True)
@@ -25,17 +26,53 @@ jax.config.update("jax_enable_x64", True)
 warnings.filterwarnings("ignore", message="Setting max_size dynamically*")
 
 
-class QNetwork(nn.Module):
-    action_dim: int
+class QNetwork(eqx.Module):
+    layer1: eqx.nn.Linear
+    layer2: eqx.nn.Linear
+    layer3: eqx.nn.Linear
 
-    @nn.compact
-    def __call__(self, x: jnp.ndarray):
-        x = nn.Dense(120)(x)
-        x = nn.relu(x)
-        x = nn.Dense(84)(x)
-        x = nn.relu(x)
-        x = nn.Dense(self.action_dim)(x)
+    def __init__(self, obs_dim: int, action_dim: int, key):
+        keys = jax.random.split(key, 3)
+        self.layer1 = eqx.nn.Linear(obs_dim, 120, key=keys[0])
+        self.layer2 = eqx.nn.Linear(120, 84, key=keys[1])
+        self.layer3 = eqx.nn.Linear(84, action_dim, key=keys[2])
+
+    def __call__(self, x):
+        x = jax.nn.relu(self.layer1(x))
+        x = jax.nn.relu(self.layer2(x))
+        x = self.layer3(x)
         return x
+
+
+class TrainState(eqx.Module):
+    flat_model: list
+    flat_opt_state: list
+
+    treedef_model: PyTreeDef = eqx.static_field()
+    treedef_opt_state: PyTreeDef = eqx.static_field()
+
+    tx: optax.GradientTransformation = eqx.static_field()
+    step: int
+
+    def apply_gradients(self, grads):
+        # filtered_model = eqx.filter(self.model, eqx.is_array)
+        model = jax.tree.unflatten(self.treedef_model, self.flat_model)
+        opt_state = jax.tree.unflatten(self.treedef_opt_state, self.flat_opt_state)
+
+        updates, update_opt_state = self.tx.update(grads, opt_state)
+        update_model = eqx.apply_updates(model, updates)
+
+        flat_update_model = jax.tree.leaves(update_model)
+        flat_update_opt_state = jax.tree.leaves(update_opt_state)
+
+        return self.replace(
+            flat_model=flat_update_model,
+            flat_opt_state=flat_update_opt_state,
+            step=self.step + 1,
+        )
+
+    def replace(self, **kwargs):
+        return replace(self, **kwargs)
 
 
 @chex.dataclass(frozen=True)
@@ -47,7 +84,7 @@ class TimeStep:
 
 
 class CustomTrainState(TrainState):
-    target_network_params: flax.core.FrozenDict
+    flat_target_model: list
     timesteps: int
     n_updates: int
 
@@ -95,10 +132,19 @@ def make_train(config):
         buffer_state = buffer.init(_timestep)
 
         # INIT NETWORK AND OPTIMIZER
-        network = QNetwork(action_dim=env.action_space(env_params).n)
         rng, _rng = jax.random.split(rng)
-        init_x = jnp.zeros(env.observation_space(env_params).shape)
-        network_params = network.init(_rng, init_x)
+
+        model = QNetwork(
+            obs_dim=config["OBS_DIM"],  # env.observation_space(env_params).shape[0],
+            action_dim=config["ACTION_DIM"],  # env.action_space(env_params).n,
+            key=_rng,
+        )
+
+        target_model = QNetwork(
+            obs_dim=config["OBS_DIM"],
+            action_dim=config["ACTION_DIM"],
+            key=_rng,
+        )
 
         def linear_schedule(count):
             frac = 1.0 - (count / config["NUM_UPDATES"])
@@ -106,12 +152,20 @@ def make_train(config):
 
         lr = linear_schedule if config.get("LR_LINEAR_DECAY", False) else config["LR"]
         tx = optax.adam(learning_rate=lr)
+        opt_state = tx.init(eqx.filter(model, eqx.is_array))
 
-        train_state = CustomTrainState.create(
-            apply_fn=network.apply,
-            params=network_params,
-            target_network_params=jax.tree.map(lambda x: jnp.copy(x), network_params),
+        flat_model, treedef_model = jax.tree.flatten(model)
+        flat_target_model, _ = jax.tree.flatten(target_model)
+        flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
+
+        train_state = CustomTrainState(
+            flat_model=flat_model,
+            flat_opt_state=flat_opt_state,
+            treedef_model=treedef_model,
+            treedef_opt_state=treedef_opt_state,
             tx=tx,
+            flat_target_model=flat_target_model,
+            step=0,
             timesteps=0,
             n_updates=0,
         )
@@ -148,7 +202,11 @@ def make_train(config):
 
             # STEP THE ENV
             rng, rng_a, rng_s = jax.random.split(rng, 3)
-            q_vals = network.apply(train_state.params, last_obs)
+            model = jax.tree.unflatten(
+                train_state.treedef_model, train_state.flat_model
+            )
+            q_vals = jax.vmap(model)(last_obs)
+
             action = eps_greedy_exploration(
                 rng_a, q_vals, train_state.timesteps
             )  # explore with epsilon greedy_exploration
@@ -168,8 +226,12 @@ def make_train(config):
 
                 learn_batch = buffer.sample(buffer_state, rng).experience
 
-                q_next_target = network.apply(
-                    train_state.target_network_params, learn_batch.second.obs
+                target_model = jax.tree.unflatten(
+                    treedef_model, train_state.flat_target_model
+                )
+
+                q_next_target = jax.vmap(target_model)(
+                    learn_batch.second.obs
                 )  # (batch_size, num_actions)
                 q_next_target = jnp.max(q_next_target, axis=-1)  # (batch_size,)
                 target = (
@@ -177,10 +239,10 @@ def make_train(config):
                     + (1 - learn_batch.first.done) * config["GAMMA"] * q_next_target
                 )
 
-                def _loss_fn(params):
-                    q_vals = network.apply(
-                        params, learn_batch.first.obs
-                    )  # (batch_size, num_actions)
+                def _loss_fn(model):
+                    # (batch_size, num_actions)
+                    q_vals = jax.vmap(model)(learn_batch.first.obs)
+
                     chosen_action_qvals = jnp.take_along_axis(
                         q_vals,
                         jnp.expand_dims(learn_batch.first.action, axis=-1),
@@ -188,7 +250,12 @@ def make_train(config):
                     ).squeeze(axis=-1)
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
-                loss, grads = jax.value_and_grad(_loss_fn)(train_state.params)
+                model = jax.tree.unflatten(
+                    train_state.treedef_model, train_state.flat_model
+                )
+
+                loss, grads = jax.value_and_grad(_loss_fn)(model)
+
                 train_state = train_state.apply_gradients(grads=grads)
                 train_state = train_state.replace(n_updates=train_state.n_updates + 1)
                 return train_state, loss
@@ -215,9 +282,9 @@ def make_train(config):
             train_state = jax.lax.cond(
                 train_state.timesteps % config["TARGET_UPDATE_INTERVAL"] == 0,
                 lambda train_state: train_state.replace(
-                    target_network_params=optax.incremental_update(
-                        train_state.params,
-                        train_state.target_network_params,
+                    flat_target_model=optax.incremental_update(
+                        train_state.flat_model,
+                        train_state.flat_target_model,
                         config["TAU"],
                     )
                 ),
@@ -259,7 +326,7 @@ def make_train(config):
 
 def main():
 
-    with open("ppo_minigrid_config.json", "r") as f:
+    with open("./config/ppo_minigrid_config.json", "r") as f:
         config = json.load(f)
 
     wandb.init(
