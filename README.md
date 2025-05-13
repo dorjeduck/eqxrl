@@ -10,22 +10,24 @@ This is an ongoing work in progress. The goal is to gradually incorporate additi
 
 * [CleanRL](https://github.com/vwxyzjn/cleanrl)
 
-  * [**dqn_jax_eqx.py**](./ports/cleanrl/dqn_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py) from Flax/Linen to Equinox. (optimized version: [**dqn_jax_eqx_flatten.py**](./ports/cleanrl/dqn_jax_eqx_flatten.py))
+  * [**dqn_jax_eqx.py**](./ports/cleanrl/dqn_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py) from Flax/Linen to Equinox. (optimized version: [**dqn_jax_eqx_opt.py**](./ports/cleanrl/dqn_jax_eqx_opt.py))
+  
+  * [**c51_jax_eqx**](./ports/cleanrl/c51_jax_eqx): Port of the CleanRL Categorical DQN implementation [c51_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51_jax.py) from Flax/Linen to Equinox. (optimized version: [**c51_jax_eqx_opt.py**](./ports/cleanrl/c51_jax_eqx_opt.py))
   
 * [PureJaxRL](https://github.com/luchris429/purejaxrl)
 
-  * [**dqn_eqx.py**](./ports/purejaxrl/dqn_eqx.py): Port of the PureJaxRL DQN implementation[dqn.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. (optimized version: [**dqn_eqx_flatten.py**](./ports/purejaxrl/dqn_eqx_flatten.py))
+  * [**dqn_eqx.py**](./ports/purejaxrl/dqn_eqx.py): Port of the PureJaxRL DQN implementation[dqn.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox. (optimized version: [**dqn_eqx_opt.py**](./ports/purejaxrl/dqn_eqx_opt.py))
 
-  * [**ppo_eqx.py**](./ports/purejaxrl/ppo_eqx.py): Port of the PureJaxRL PPO implementation[ppo.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo.py) from Flax/Linen to Equinox. (optimized version: [**ppo_eqx_flatten.py**](./ports/purejaxrl/ppo_eqx_flatten.py))
+  * [**ppo_eqx.py**](./ports/purejaxrl/ppo_eqx.py): Port of the PureJaxRL PPO implementation[ppo.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo.py) from Flax/Linen to Equinox. (optimized version: [**ppo_eqx_opt.py**](./ports/purejaxrl/ppo_eqx_opt.py))
 
-  * [**ppo_minigrid_eqx.py**](./ports/purejaxrl/ppo_minigrid_eqx.py): Port of the PureJaxRL PPO minigrid implementation[ppo_minigrid.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo_minigrid.py) from Flax/Linen to Equinox. (optimized version: [**ppo_minigrid_eqx_flatten.py**](./ports/purejaxrl/ppo_minigrid_eqx_flatten.py))
+  * [**ppo_minigrid_eqx.py**](./ports/purejaxrl/ppo_minigrid_eqx.py): Port of the PureJaxRL PPO minigrid implementation[ppo_minigrid.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo_minigrid.py) from Flax/Linen to Equinox. (optimized version: [**ppo_minigrid_eqx_opt.py**](./ports/purejaxrl/ppo_minigrid_eqx_opt.py))
 
-The `_flatten` implementations are performance optimized based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops).
+The `_opt` implementations are performance optimized based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops).
 
 ## Changelog
 
 * 2025.05.13
-  * CleanRL DQN port added. 
+  * CleanRL DQN & Categorical DQN port added.
 * 2025.05.08
   * PureJaxRL PPO minigrid port added.
 * 2025.01.27

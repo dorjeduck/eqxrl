@@ -12,6 +12,8 @@ import numpy as np
 import optax
 import tyro
 
+from jax.tree_util import PyTreeDef
+
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
@@ -104,27 +106,38 @@ class QNetwork(eqx.Module):
         x = self.layer3(x)
         return x
 
-
 @jax.jit
 def forward_batch(model, batch_x):
     return jax.vmap(model)(batch_x)
 
 
 class TrainState(eqx.Module):
-    model: eqx.Module
-    target_model: eqx.Module
+    flat_model: list
+    flat_opt_state: list
+
+    flat_target_model: list
+
+    treedef_model: PyTreeDef = eqx.static_field()
+    treedef_opt_state: PyTreeDef = eqx.static_field()
+
     tx: optax.GradientTransformation = eqx.static_field()
-    opt_state: optax.OptState
+
     step: int
 
     def apply_gradients(self, grads):
-        # filtered_model = eqx.filter(self.model, eqx.is_array)
-        updates, new_opt_state = self.tx.update(grads, self.opt_state)
-        new_model = eqx.apply_updates(self.model, updates)
+
+        model = jax.tree.unflatten(self.treedef_model, self.flat_model)
+        opt_state = jax.tree.unflatten(self.treedef_opt_state, self.flat_opt_state)
+
+        updates, update_opt_state = self.tx.update(grads, opt_state)
+        update_model = eqx.apply_updates(model, updates)
+
+        flat_update_model = jax.tree.leaves(update_model)
+        flat_update_opt_state = jax.tree.leaves(update_opt_state)
 
         return self.replace(
-            model=new_model,
-            opt_state=new_opt_state,
+            flat_model=flat_update_model,
+            flat_opt_state=flat_update_opt_state,
             step=self.step + 1,
         )
 
@@ -132,16 +145,23 @@ class TrainState(eqx.Module):
         return replace(self, **kwargs)
 
     @classmethod
-    def create(cls, *, model,target_model, tx, **kwargs):
+    def create(cls, *, model, target_model, tx, **kwargs):
         """Creates a new instance with ``step=0`` and initialized ``opt_state``."""
         # We exclude OWG params when present because they do not need opt states.
+
         opt_state = tx.init(eqx.filter(model, eqx.is_array))
 
+        flat_model, treedef_model = jax.tree.flatten(model)
+        flat_target_model, _ = jax.tree.flatten(target_model)
+        flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
+
         return cls(
-            model=model,
-            target_model=target_model,
+            flat_model=flat_model,
+            flat_opt_state=flat_opt_state,
+            treedef_model=treedef_model,
+            treedef_opt_state=treedef_opt_state,
             tx=tx,
-            opt_state=opt_state,
+            flat_target_model=flat_target_model,
             step=0,
             **kwargs,
         )
@@ -231,7 +251,11 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     @jax.jit
     def update(q_state, observations, actions, next_observations, rewards, dones):
 
-        q_next_target = forward_batch(q_state.target_model,next_observations)
+        target_model = jax.tree.unflatten(
+            q_state.treedef_model, q_state.flat_target_model
+        )
+
+        q_next_target = forward_batch(target_model,next_observations)
 
         q_next_target = jnp.max(q_next_target, axis=-1)  # (batch_size,)
         next_q_value = rewards + (1 - dones) * args.gamma * q_next_target
@@ -243,9 +267,9 @@ poetry run pip install "stable_baselines3==2.0.0a1"
             ]  # (batch_size,)
             return ((q_pred - next_q_value) ** 2).mean(), q_pred
 
-        (loss_value, q_pred), grads = jax.value_and_grad(mse_loss, has_aux=True)(
-            q_state.model
-        )
+        model = jax.tree.unflatten(q_state.treedef_model, q_state.flat_model)
+
+        (loss_value, q_pred), grads = jax.value_and_grad(mse_loss, has_aux=True)(model)
 
         q_state = q_state.apply_gradients(grads=grads)
 
@@ -268,7 +292,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                 [envs.single_action_space.sample() for _ in range(envs.num_envs)]
             )
         else:
-            q_values = forward_batch(q_state.model,obs)
+            model = jax.tree.unflatten(q_state.treedef_model, q_state.flat_model)
+            q_values = forward_batch(model,obs)
 
             actions = q_values.argmax(axis=-1)
             actions = jax.device_get(actions)
@@ -332,8 +357,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
             if global_step % args.target_network_frequency == 0:
                 q_state = q_state.replace(
-                    target_model=optax.incremental_update(
-                        q_state.model, q_state.target_model, args.tau
+                    flat_target_model=optax.incremental_update(
+                        q_state.flat_model, q_state.flat_target_model, args.tau
                     )
                 )
 
