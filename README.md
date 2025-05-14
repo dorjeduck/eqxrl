@@ -22,7 +22,7 @@ This is an ongoing work in progress. The goal is to gradually incorporate additi
 
   * [**ppo_minigrid_eqx.py**](./ports/purejaxrl/ppo_minigrid_eqx.py): Port of the PureJaxRL PPO minigrid implementation[ppo_minigrid.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo_minigrid.py) from Flax/Linen to Equinox.
 
-For each port, an '_opt' variant is also available with performance optimizations based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops) and a corresponding '_nn' version which contains the original Flax/Linen implementation for comparison.
+For each port, an `_opt` variant is also available with performance optimizations based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops) and a corresponding `_orig` version which contains the original implementation for comparison.
 
 ## Changelog
 
