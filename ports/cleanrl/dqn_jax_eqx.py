@@ -106,8 +106,8 @@ class QNetwork(eqx.Module):
 
 
 @jax.jit
-def forward_batch(model, batch_x):
-    return jax.vmap(model)(batch_x)
+def forward_batch(model, *batch_inputs):
+    return jax.vmap(model)(*batch_inputs)
 
 
 class TrainState(eqx.Module):

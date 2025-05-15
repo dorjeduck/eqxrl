@@ -120,8 +120,8 @@ class QNetwork(eqx.Module):
 
 
 @jax.jit
-def forward_batch(model, batch_x):
-    return jax.vmap(model)(batch_x)
+def forward_batch(model, *batch_inputs):
+    return jax.vmap(model)(*batch_inputs)
 
 
 class TrainState(eqx.Module):
@@ -406,37 +406,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                         q_state.flat_model, q_state.flat_target_model, 1
                     )
                 )
-    """
-    if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        model_data = {
-            "model_weights": q_state.params,
-            "args": vars(args),
-        }
-        with open(model_path, "wb") as f:
-            f.write(flax.serialization.to_bytes(model_data))
-        print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.c51_jax_eval import evaluate
 
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=QNetwork,
-            epsilon=0.05,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-        
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "C51", f"runs/{run_name}", f"videos/{run_name}-eval")
-        """
 
     envs.close()
     writer.close()
