@@ -228,15 +228,9 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         key=q_key,
     )
 
-    t_network = QNetwork(
-        obs_dim=envs.single_observation_space.shape[0],
-        action_dim=envs.single_action_space.n,
-        key=q_key,  # same key so we start with the same weights
-    )
-
     q_state = TrainState.create(
         model=q_network,
-        target_model=t_network,
+        target_model=q_network,
         tx=optax.adam(learning_rate=args.learning_rate),
     )
 

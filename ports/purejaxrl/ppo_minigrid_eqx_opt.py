@@ -140,11 +140,6 @@ def make_train(config):
             key=_rng,
         )
 
-        target_model = QNetwork(
-            obs_dim=config["OBS_DIM"],
-            action_dim=config["ACTION_DIM"],
-            key=_rng,
-        )
 
         def linear_schedule(count):
             frac = 1.0 - (count / config["NUM_UPDATES"])
@@ -155,7 +150,7 @@ def make_train(config):
         opt_state = tx.init(eqx.filter(model, eqx.is_array))
 
         flat_model, treedef_model = jax.tree.flatten(model)
-        flat_target_model, _ = jax.tree.flatten(target_model)
+       
         flat_opt_state, treedef_opt_state = jax.tree.flatten(opt_state)
 
         train_state = CustomTrainState(
@@ -164,7 +159,7 @@ def make_train(config):
             treedef_model=treedef_model,
             treedef_opt_state=treedef_opt_state,
             tx=tx,
-            flat_target_model=flat_target_model,
+            flat_target_model=flat_model,
             step=0,
             timesteps=0,
             n_updates=0,

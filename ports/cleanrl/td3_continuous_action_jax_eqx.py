@@ -1,9 +1,8 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ddpg/#ddpg_continuous_action_jaxpy
+# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/td3/#td3_continuous_action_jaxpy
 import os
 import random
 import time
 from dataclasses import dataclass
-from equinox import tree_pformat
 
 import equinox as eqx
 
@@ -43,7 +42,7 @@ class Args:
 
     # Algorithm specific arguments
     env_id: str = "Hopper-v4"
-    """the environment id of the Atari game"""
+    """the id of the environment"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
@@ -56,6 +55,8 @@ class Args:
     """target smoothing coefficient (default: 0.005)"""
     batch_size: int = 256
     """the batch size of sample from the reply memory"""
+    policy_noise: float = 0.2
+    """the scale of policy noise"""
     exploration_noise: float = 0.1
     """the scale of exploration noise"""
     learning_starts: int = 25e3
@@ -78,9 +79,6 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         return env
 
     return thunk
-
-
-# ALGO LOGIC: initialize agent here:
 
 
 class QNetwork(eqx.Module):
@@ -209,8 +207,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
-    key = jax.random.key(args.seed)
-    key, actor_key, qf_key = jax.random.split(key, 3)
+    key = jax.random.PRNGKey(args.seed)
+    key, actor_key, qf1_key, qf2_key = jax.random.split(key, 4)
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
@@ -236,6 +234,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     obs_dim = envs.single_observation_space.shape[0]
     action_dim = np.prod(envs.single_action_space.shape)
 
+   
     action_scale = jnp.array(
         (envs.action_space.high - envs.action_space.low) / 2.0
     )
@@ -246,99 +245,142 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     actor = Actor(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        action_scale=action_scale.squeeze(), # squeeze  for non batch eqx network
-        action_bias=action_bias.squeeze(), # squeeze  for non batch eqx network
+        action_scale=action_scale.squeeze(), # squeeze for non batch eqx network
+        action_bias=action_bias.squeeze(), # squeeze for non batch eqx network
         key=actor_key,
     )
 
     actor_state = TrainState.create(
         model=actor,
-        target_model=actor, 
+        target_model=actor,
         tx=optax.adam(learning_rate=args.learning_rate),
     )
 
-    qf = QNetwork(
+    qf1 = QNetwork(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        key=qf_key,
+        key=qf1_key,
     )
 
-    qf_state = TrainState.create(
-        model=qf,
-        target_model=qf,
+    qf2 = QNetwork(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        key=qf2_key,  # different key for qf2
+    )
+
+    qf1_state = TrainState.create(
+        model=qf1,
+        target_model=qf1,
+        tx=optax.adam(learning_rate=args.learning_rate),
+    )
+
+    qf2_state = TrainState.create(
+        model=qf2,
+        target_model=qf2,
         tx=optax.adam(learning_rate=args.learning_rate),
     )
 
     @jax.jit
     def update_critic(
         actor_state: TrainState,
-        qf_state: TrainState,
+        qf1_state: TrainState,
+        qf2_state: TrainState,
         observations: np.ndarray,
         actions: np.ndarray,
         next_observations: np.ndarray,
         rewards: np.ndarray,
         terminations: np.ndarray,
-   
+        action_scale: jnp.ndarray,
+        key: jnp.ndarray,
     ):
-
-        next_state_actions = actor_state.target_model.forward_batch(
+        # TODO Maybe pre-generate a lot of random keys
+        # also check https://jax.readthedocs.io/en/latest/jax.random.html
+        key, noise_key = jax.random.split(key, 2)
+        clipped_noise = (
+            jnp.clip(
+                (jax.random.normal(noise_key, actions.shape) * args.policy_noise),
+                -args.noise_clip,
+                args.noise_clip,
+            )
+            * action_scale
+        )
+        next_state_actions = jnp.clip(
+            actor_state.target_model.forward_batch(
             next_observations
-        ).clip(
-            -1, 1
-        )  # TODO: proper clip
+        ) + clipped_noise,
+            envs.single_action_space.low,
+            envs.single_action_space.high,
+        )
 
-        qf_next_target = qf_state.target_model.forward_batch(
+        qf1_next_target = qf1_state.target_model.forward_batch(
+            next_observations, next_state_actions
+        ).reshape(-1)
+        qf2_next_target = qf2_state.target_model.forward_batch(
             next_observations, next_state_actions
         ).reshape(-1)
 
+
+        min_qf_next_target = jnp.minimum(qf1_next_target, qf2_next_target)
         next_q_value = (
-            rewards + (1 - terminations) * args.gamma * (qf_next_target)
+            rewards + (1 - terminations) * args.gamma * (min_qf_next_target)
         ).reshape(-1)
 
         def mse_loss(model):
             qf_a_values = model.forward_batch(observations, actions).squeeze()
             return ((qf_a_values - next_q_value) ** 2).mean(), qf_a_values.mean()
-
-        (qf_loss_value, qf_a_values), grads1 = jax.value_and_grad(
+        
+        (qf1_loss_value, qf1_a_values), grads1 = jax.value_and_grad(
             mse_loss, has_aux=True
-        )(qf_state.model)
-        qf_state = qf_state.apply_gradients(grads=grads1)
+        )(qf1_state.model)
+        (qf2_loss_value, qf2_a_values), grads2 = jax.value_and_grad(
+            mse_loss, has_aux=True
+        )(qf2_state.model)
+        qf1_state = qf1_state.apply_gradients(grads=grads1)
+        qf2_state = qf2_state.apply_gradients(grads=grads2)
 
-        return qf_state, qf_loss_value, qf_a_values
+        return (
+            (qf1_state, qf2_state),
+            (qf1_loss_value, qf2_loss_value),
+            (qf1_a_values, qf2_a_values),
+            key,
+        )
 
     @jax.jit
     def update_actor(
         actor_state: TrainState,
-        qf_state: TrainState,
+        qf1_state: TrainState,
+        qf2_state: TrainState,
         observations: np.ndarray,
     ):
-
+        
         def actor_loss(model):
-            return -qf_state.model.forward_batch(
+            return -qf1_state.model.forward_batch(
                 observations, model.forward_batch(observations)
             ).mean()
+    
 
         actor_loss_value, grads = jax.value_and_grad(actor_loss)(actor_state.model)
-
         actor_state = actor_state.apply_gradients(grads=grads)
-
         actor_state = actor_state.replace(
             target_model=optax.incremental_update(
                 actor_state.model, actor_state.target_model, args.tau
             )
         )
 
-        qf_state = qf_state.replace(
+        qf1_state = qf1_state.replace(
             target_model=optax.incremental_update(
-                qf_state.model, qf_state.target_model, args.tau
+                qf1_state.model, qf1_state.target_model, args.tau
             )
         )
-
-        return actor_state, qf_state, actor_loss_value
+        qf2_state = qf2_state.replace(
+            target_model=optax.incremental_update(
+                qf2_state.model, qf2_state.target_model, args.tau
+            )
+        )
+        return actor_state, (qf1_state, qf2_state), actor_loss_value
 
     start_time = time.time()
     for global_step in range(args.total_timesteps):
-
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
             actions = np.array(
@@ -346,25 +388,21 @@ poetry run pip install "stable_baselines3==2.0.0a1"
             )
         else:
             actions = actor_state.model.forward_batch(obs)
-
-            print(actor.action_scale)
-            print(np.random.normal(0, actor.action_scale * args.exploration_noise))
-            print("----")
-            print(np.random.normal(0, actor.action_scale * args.exploration_noise)[0])
-            exit()
             actions = np.array(
                 [
+          
                     (
                         jax.device_get(actions)[0]
                         + np.random.normal(
-                            0, actor.action_scale * args.exploration_noise
+                            0,
+                            max_action * args.exploration_noise,
+                            size=envs.single_action_space.shape,
                         )
                     ).clip(envs.single_action_space.low, envs.single_action_space.high)
                 ]
             )
 
         # TRY NOT TO MODIFY: execute the game and log data.
-
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
@@ -384,7 +422,6 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         # TRY NOT TO MODIFY: save data to replay buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
-
             if trunc:
                 real_next_obs[idx] = infos["final_observation"][idx]
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
@@ -396,26 +433,37 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         if global_step > args.learning_starts:
             data = rb.sample(args.batch_size)
 
-            qf_state, qf_loss_value, qf_a_values = update_critic(
+            (
+                (qf1_state, qf2_state),
+                (qf1_loss_value, qf2_loss_value),
+                (qf1_a_values, qf2_a_values),
+                key,
+            ) = update_critic(
                 actor_state,
-                qf_state,
+                qf1_state,
+                qf2_state,
                 data.observations.numpy(),
                 data.actions.numpy(),
                 data.next_observations.numpy(),
                 data.rewards.flatten().numpy(),
                 data.dones.flatten().numpy(),
+                action_scale,
+                key,
             )
-            if global_step % args.policy_frequency == 0:
 
-                actor_state, qf_state, actor_loss_value = update_actor(
+            if global_step % args.policy_frequency == 0:
+                actor_state, (qf1_state, qf2_state), actor_loss_value = update_actor(
                     actor_state,
-                    qf_state,
+                    qf1_state,
+                    qf2_state,
                     data.observations.numpy(),
                 )
 
             if global_step % 100 == 0:
-                writer.add_scalar("losses/qf_loss", qf_loss_value.item(), global_step)
-                writer.add_scalar("losses/qf_values", qf_a_values.item(), global_step)
+                writer.add_scalar("losses/qf1_loss", qf1_loss_value.item(), global_step)
+                writer.add_scalar("losses/qf2_loss", qf2_loss_value.item(), global_step)
+                writer.add_scalar("losses/qf1_values", qf1_a_values.item(), global_step)
+                writer.add_scalar("losses/qf2_values", qf2_a_values.item(), global_step)
                 writer.add_scalar(
                     "losses/actor_loss", actor_loss_value.item(), global_step
                 )

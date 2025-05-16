@@ -15,6 +15,8 @@ This is an ongoing work in progress. The goal is to gradually incorporate additi
   * [**ddpg_continuous_action_jax_eqx**](./ports/cleanrl/ddpg_continuous_action_jax_eqx.py): Port of the CleanRL DDPG implementation [ddpg_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ddpg_continuous_action_jax.py) from Flax/Linen to Equinox.
   
   * [**dqn_jax_eqx.py**](./ports/cleanrl/dqn_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py) from Flax/Linen to Equinox.
+
+  * [**td3_continuous_action_jax_eqx**](./ports/cleanrl/td3_continuous_action_jax_eqx.py): Port of the Twin Delayed Deep Deterministic Policy Gradient implementation [td3_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/td3_continuous_action_jax.py) from Flax/Linen to Equinox.
   
 * [PureJaxRL](https://github.com/luchris429/purejaxrl)
 
@@ -28,6 +30,8 @@ For most ports, an `_opt` variant is also available with performance optimizatio
 
 ## Changelog
 
+* 2025.05.16
+  * CleanRL Twin Delayed Deep Deterministic Policy Gradient port added.
 * 2025.05.15
   * CleanRL DDPQ port added.
 * 2025.05.13

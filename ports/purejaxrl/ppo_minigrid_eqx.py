@@ -129,11 +129,6 @@ def make_train(config):
             key=_rng,
         )
 
-        target_model = QNetwork(
-            obs_dim=config["OBS_DIM"],
-            action_dim=config["ACTION_DIM"],
-            key=_rng,
-        )
 
         def linear_schedule(count):
             frac = 1.0 - (count / config["NUM_UPDATES"])
@@ -147,7 +142,7 @@ def make_train(config):
             model=model,
             tx=tx,
             opt_state=opt_state,
-            target_model=target_model,
+            target_model=model,
             step=0,
             timesteps=0,
             n_updates=0,
