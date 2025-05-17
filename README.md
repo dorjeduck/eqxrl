@@ -1,6 +1,6 @@
 # EqxRL
 
-This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax) and [Equinox](https://github.com/patrick-kidger/equinox). The goal is to learn Deep RL and JAX/Equinox through clear, hands-on implementations, with clarity prioritized over performance.
+This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax)/[Equinox](https://github.com/patrick-kidger/equinox). The goal is to learn Deep RL and JAX/Equinox through clear, hands-on implementations, with clarity prioritized over performance.
 
 > **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative.
 
@@ -15,8 +15,10 @@ This is an ongoing work in progress. The goal is to gradually incorporate additi
   * [**ddpg_continuous_action_jax_eqx**](./ports/cleanrl/ddpg_continuous_action_jax_eqx.py): Port of the CleanRL DDPG implementation [ddpg_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ddpg_continuous_action_jax.py) from Flax/Linen to Equinox.
   
   * [**dqn_jax_eqx.py**](./ports/cleanrl/dqn_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py) from Flax/Linen to Equinox.
+  
+  * [**dqn_atari_jax_eqx.py**](./ports/cleanrl/dqn_atari_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_atari_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari_jax.py) from Flax/Linen to Equinox.
 
-  * [**td3_continuous_action_jax_eqx**](./ports/cleanrl/td3_continuous_action_jax_eqx.py): Port of the Twin Delayed Deep Deterministic Policy Gradient implementation [td3_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/td3_continuous_action_jax.py) from Flax/Linen to Equinox.
+  * [**td3_continuous_action_jax_eqx**](./ports/cleanrl/td3_continuous_action_jax_eqx.py): Port of the CleanRL Twin Delayed Deep Deterministic Policy Gradient implementation [td3_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/td3_continuous_action_jax.py) from Flax/Linen to Equinox.
   
 * [PureJaxRL](https://github.com/luchris429/purejaxrl)
 
@@ -30,6 +32,8 @@ For most ports, an `_opt` variant is also available with performance optimizatio
 
 ## Changelog
 
+* 2025.05.17
+  * CleanRL Atari DQN port added.
 * 2025.05.16
   * CleanRL Twin Delayed Deep Deterministic Policy Gradient port added.
 * 2025.05.15

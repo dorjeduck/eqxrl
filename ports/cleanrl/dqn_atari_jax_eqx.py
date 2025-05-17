@@ -1,8 +1,12 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/dqn/#dqn_jaxpy
+# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/dqn/#dqn_atari_jaxpy
 import os
 import random
 import time
-from dataclasses import dataclass,replace
+from dataclasses import dataclass, replace
+
+os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = (
+    "0.7"  # see https://github.com/google/jax/discussions/6332#discussioncomment-1279991
+)
 
 import equinox as eqx
 import gymnasium as gym
@@ -11,7 +15,14 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tyro
-
+from flax.training.train_state import TrainState
+from stable_baselines3.common.atari_wrappers import (
+    ClipRewardEnv,
+    EpisodicLifeEnv,
+    FireResetEnv,
+    MaxAndSkipEnv,
+    NoopResetEnv,
+)
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
@@ -40,33 +51,33 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "CartPole-v1"
+    env_id: str = "BreakoutNoFrameskip-v4"
     """the id of the environment"""
-    total_timesteps: int = 500000
+    total_timesteps: int = 10000000
     """total timesteps of the experiments"""
-    learning_rate: float = 2.5e-4
+    learning_rate: float = 1e-4
     """the learning rate of the optimizer"""
     num_envs: int = 1
     """the number of parallel game environments"""
-    buffer_size: int = 10000
+    buffer_size: int = 1000000
     """the replay memory buffer size"""
     gamma: float = 0.99
     """the discount factor gamma"""
     tau: float = 1.0
     """the target network update rate"""
-    target_network_frequency: int = 500
+    target_network_frequency: int = 1000
     """the timesteps it takes to update the target network"""
-    batch_size: int = 128
+    batch_size: int = 32
     """the batch size of sample from the reply memory"""
     start_e: float = 1
     """the starting epsilon for exploration"""
-    end_e: float = 0.05
+    end_e: float = 0.01
     """the ending epsilon for exploration"""
-    exploration_fraction: float = 0.5
+    exploration_fraction: float = 0.10
     """the fraction of `total-timesteps` it takes from start-e to go end-e"""
-    learning_starts: int = 10000
+    learning_starts: int = 80000
     """timestep to start learning"""
-    train_frequency: int = 10
+    train_frequency: int = 4
     """the frequency of training"""
 
 
@@ -78,35 +89,79 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         else:
             env = gym.make(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
-        env.action_space.seed(seed)
 
+        env = NoopResetEnv(env, noop_max=30)
+        env = MaxAndSkipEnv(env, skip=4)
+        env = EpisodicLifeEnv(env)
+        if "FIRE" in env.unwrapped.get_action_meanings():
+            env = FireResetEnv(env)
+        env = ClipRewardEnv(env)
+        env = gym.wrappers.ResizeObservation(env, (84, 84))
+        env = gym.wrappers.GrayScaleObservation(env)
+        env = gym.wrappers.FrameStack(env, 4)
+
+        env.action_space.seed(seed)
         return env
 
     return thunk
 
 
-# ALGO LOGIC: initialize agent here:
 class QNetwork(eqx.Module):
-    layer1: eqx.nn.Linear
-    layer2: eqx.nn.Linear
-    layer3: eqx.nn.Linear
+    conv1: eqx.nn.Conv2d
+    conv2: eqx.nn.Conv2d
+    conv3: eqx.nn.Conv2d
+    linear1: eqx.nn.Linear
+    linear2: eqx.nn.Linear
 
-    def __init__(self, obs_dim: int, action_dim, key):
-        keys = jax.random.split(key, 3)
-        self.layer1 = eqx.nn.Linear(obs_dim, 120, key=keys[0])
-        self.layer2 = eqx.nn.Linear(120, 84, key=keys[1])
-        self.layer3 = eqx.nn.Linear(84, action_dim, key=keys[2])
+    def __init__(self, action_dim, key):
+        keys = jax.random.split(key, 5)
+        self.conv1 = eqx.nn.Conv2d(
+            in_channels=4,
+            out_channels=32,
+            kernel_size=8,
+            stride=4,
+            padding=0,
+            key=keys[0],
+        )
+        self.conv2 = eqx.nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=4,
+            stride=2,
+            padding=0,
+            key=keys[1],
+        )
+        self.conv3 = eqx.nn.Conv2d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=0,
+            key=keys[2],
+        )
+        
+
+        self.linear1 = eqx.nn.Linear(3136, 120, key=keys[3])
+        self.linear2 = eqx.nn.Linear(120, action_dim, key=keys[4])
 
     def __call__(self, x: jnp.ndarray):
-        x = jax.nn.relu(self.layer1(x))
-        x = jax.nn.relu(self.layer2(x))
-        x = self.layer3(x)
-        return x
+       
+        x = x / (255.0)
+        x = jax.nn.relu(self.conv1(x))
+        x = jax.nn.relu(self.conv2(x))
+        x = jax.nn.relu(self.conv3(x))
 
+        x = jnp.ravel(x)
+
+        x = jax.nn.relu(self.linear1(x))
+        x = self.linear2(x)
+        
+        return x
 
 @jax.jit
 def forward_batch(model, *batch_inputs):
     return jax.vmap(model)(*batch_inputs)
+
 
 
 class TrainState(eqx.Module):
@@ -146,6 +201,7 @@ class TrainState(eqx.Module):
         )
 
 
+
 def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
     slope = (end_e - start_e) / duration
     return max(slope * t + start_e, end_e)
@@ -158,7 +214,7 @@ if __name__ == "__main__":
         raise ValueError(
             """Ongoing migration: run the following command to install the new dependencies:
 
-poetry run pip install "stable_baselines3==2.0.0a1"
+poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-license]==0.28.1"  "ale-py==0.8.1" 
 """
         )
     args = tyro.cli(Args)
@@ -201,8 +257,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     ), "only discrete action space is supported"
 
     obs, _ = envs.reset(seed=args.seed)
-    q_network = QNetwork(
-        obs_dim=envs.single_observation_space.shape[0],
+
+    q_network = QNetwork(        
         action_dim=envs.single_action_space.n,
         key=q_key,
     )
@@ -213,18 +269,20 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         tx=optax.adam(learning_rate=args.learning_rate),
     )
 
+
     rb = ReplayBuffer(
         args.buffer_size,
         envs.single_observation_space,
         envs.single_action_space,
         "cpu",
+        optimize_memory_usage=True,
         handle_timeout_termination=False,
     )
 
     @jax.jit
     def update(q_state, observations, actions, next_observations, rewards, dones):
-
-        q_next_target = forward_batch(q_state.target_model,next_observations)
+        # (batch_size, num_actions)
+        q_next_target = forward_batch(q_state.target_model,next_observations)   
 
         q_next_target = jnp.max(q_next_target, axis=-1)  # (batch_size,)
         next_q_value = rewards + (1 - dones) * args.gamma * q_next_target
@@ -239,9 +297,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         (loss_value, q_pred), grads = jax.value_and_grad(mse_loss, has_aux=True)(
             q_state.model
         )
-
         q_state = q_state.apply_gradients(grads=grads)
-
         return loss_value, q_pred, q_state
 
     start_time = time.time()
@@ -322,13 +378,40 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                     )
 
             # update target network
-
             if global_step % args.target_network_frequency == 0:
                 q_state = q_state.replace(
                     target_model=optax.incremental_update(
                         q_state.model, q_state.target_model, args.tau
                     )
                 )
+
+    """
+    if args.save_model:
+        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        with open(model_path, "wb") as f:
+            f.write(flax.serialization.to_bytes(q_state.params))
+        print(f"model saved to {model_path}")
+        from cleanrl_utils.evals.dqn_jax_eval import evaluate
+
+        episodic_returns = evaluate(
+            model_path,
+            make_env,
+            args.env_id,
+            eval_episodes=10,
+            run_name=f"{run_name}-eval",
+            Model=QNetwork,
+            epsilon=0.05,
+        )
+        for idx, episodic_return in enumerate(episodic_returns):
+            writer.add_scalar("eval/episodic_return", episodic_return, idx)
+
+        if args.upload_model:
+            from cleanrl_utils.huggingface import push_to_hub
+
+            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
+            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
+            push_to_hub(args, episodic_returns, repo_id, "DQN", f"runs/{run_name}", f"videos/{run_name}-eval")
+    """
 
     envs.close()
     writer.close()

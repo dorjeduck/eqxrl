@@ -2,7 +2,7 @@
 import os
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import equinox as eqx
 import gymnasium as gym
@@ -17,8 +17,6 @@ from jax.tree_util import PyTreeDef
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
-
-from dataclasses import replace
 
 
 @dataclass

@@ -2,7 +2,7 @@
 import os
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import equinox as eqx
 
@@ -12,8 +12,6 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tyro
-
-from dataclasses import replace
 
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
