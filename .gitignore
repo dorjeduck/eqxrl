@@ -177,3 +177,4 @@ x*.py
 lab/
 repos
 ports/cleanrl/runs
+wandb

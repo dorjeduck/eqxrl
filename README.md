@@ -6,36 +6,16 @@ This repository contains implementations of various reinforcement learning algor
 
 ## Implementations
 
-This is an ongoing work in progress. The goal is to gradually incorporate additional reinforcement learning algorithms to this repository.
+This is an ongoing work in progress. The goal is to gradually incorporate most common reinforcement learning algorithms to this repository.
 
-* [CleanRL](https://github.com/vwxyzjn/cleanrl)
+### Ports
 
-  * [**c51_jax_eqx**](./ports/cleanrl/c51_jax_eqx): Port of the CleanRL Categorical DQN implementation [c51_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51_jax.py) from Flax/Linen to Equinox.
-  
-  * [**ddpg_continuous_action_jax_eqx**](./ports/cleanrl/ddpg_continuous_action_jax_eqx.py): Port of the CleanRL DDPG implementation [ddpg_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ddpg_continuous_action_jax.py) from Flax/Linen to Equinox.
-  
-  * [**dqn_jax_eqx.py**](./ports/cleanrl/dqn_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_jax.py) from Flax/Linen to Equinox.
-  
-  * [**dqn_atari_jax_eqx.py**](./ports/cleanrl/dqn_atari_jax_eqx.py): Port of the CleanRL DQN implementation [dqn_atari_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/dqn_atari_jax.py) from Flax/Linen to Equinox.
-
-  * [**td3_continuous_action_jax_eqx**](./ports/cleanrl/td3_continuous_action_jax_eqx.py): Port of the CleanRL Twin Delayed Deep Deterministic Policy Gradient implementation [td3_continuous_action_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/td3_continuous_action_jax.py) from Flax/Linen to Equinox.
-  
-* [PureJaxRL](https://github.com/luchris429/purejaxrl)
-
-  * [**dqn_eqx.py**](./ports/purejaxrl/dqn_eqx.py): Port of the PureJaxRL DQN implementation[dqn.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/dqn.py) from Flax/Linen to Equinox.
-
-  * [**ppo_eqx.py**](./ports/purejaxrl/ppo_eqx.py): Port of the PureJaxRL PPO implementation[ppo.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo.py) from Flax/Linen to Equinox.
-
-  * [**ppo_minigrid_eqx.py**](./ports/purejaxrl/ppo_minigrid_eqx.py): Port of the PureJaxRL PPO minigrid implementation[ppo_minigrid.py](https://github.com/luchris429/purejaxrl/blob/main/purejaxrl/ppo_minigrid.py) from Flax/Linen to Equinox.
-  
-### Variants
-
-* Each port has a corresponding `_orig` version in the repository, containing the original implementation for comparison.
-
-* Some ports also include an `_opt` variant with performance optimizations based on [Low-overhead training loops](https://docs.kidger.site/equinox/tricks/#low-overhead-training-loops). While these optimizations offer some performance improvements, the gains are relatively modest. We hope these examples make it straightforward to apply these optimizations to the remaining ports as needed.
+See [ports](./ports.md) for a list ports of Reinforcement Learning implementations to Jax/Equinox we have created so far.
 
 ## Changelog
 
+* 2025.05.20
+  * RLax example ports added.
 * 2025.05.17
   * CleanRL Atari DQN port added.
 * 2025.05.16
