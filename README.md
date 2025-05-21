@@ -6,7 +6,7 @@ This repository contains implementations of various reinforcement learning algor
 
 ## Implementations
 
-This is an ongoing work in progress. The goal is to gradually incorporate most common reinforcement learning algorithms to this repository.
+This is an ongoing work in progress. The goal is to gradually incorporate the most common reinforcement learning algorithms to this repository.
 
 ### Ports
 
