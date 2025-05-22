@@ -1,10 +1,10 @@
 # EqxRL
 
-This repository evaluates the implementation of reinforcement learning algorithms with [JAX](https://github.com/jax-ml/jax) & [Equinox](https://github.com/patrick-kidger/equinox). While most JAX-based RL implementations use the now discontinued [Flax/Linen](https://flax-linen.readthedocs.io/en/latest/) and [Haiku](https://github.com/google-deepmind/dm-haiku) neural network libraries, this project specifically explores using Equinox as an alternative.
+This repository explores the implementation of reinforcement learning algorithms with [JAX](https://github.com/jax-ml/jax) & [Equinox](https://github.com/patrick-kidger/equinox). While most JAX-based RL implementations we are aware of use the now discontinued [Flax/Linen](https://flax-linen.readthedocs.io/en/latest/) and [Haiku](https://github.com/google-deepmind/dm-haiku) neural network libraries, this project specifically explores using Equinox as an alternative.
 
 ## Project Overview
 
-Currently, we're reimplementing popular reinforcement learning algorithms using [Equinox](https://github.com/patrick-kidger/equinox) to assess its suitability for RL workloads.
+Currently, we're reimplementing popular reinforcement learning algorithms using [Equinox](https://github.com/patrick-kidger/equinox) to evaluate its suitability for RL workloads.
 
 As a possible next step, we're considering a lightweight library built on top of [RLax](https://github.com/google-deepmind/rlax), specifically tailored for Equinox-based reinforcement learning workflows.
 

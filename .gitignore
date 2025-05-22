@@ -169,9 +169,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-.vscode
+
 
 ## my stuff
+.vscode
+.DS_Store
 
 *_old.py
 x*.py
