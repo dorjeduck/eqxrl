@@ -1,19 +1,19 @@
 # EqxRL
 
-This repository contains implementations of various reinforcement learning algorithms ported to [JAX](https://github.com/jax-ml/jax)/[Equinox](https://github.com/patrick-kidger/equinox). The goal is to learn Deep RL and JAX/Equinox through clear, hands-on implementations, with clarity prioritized over performance.
-
-> **Note**: While most JAX-based RL implementations use Flax/Linen for neural network components, this project specifically explores using Equinox as an alternative.
+This repository evaluates the implementation of reinforcement learning algorithms with [JAX](https://github.com/jax-ml/jax) & [Equinox](https://github.com/patrick-kidger/equinox). While most JAX-based RL implementations use the now discontinued [Flax/Linen](https://flax-linen.readthedocs.io/en/latest/) and [Haiku](https://github.com/google-deepmind/dm-haiku) neural network libraries, this project specifically explores using Equinox as an alternative.
 
 ## Implementations
 
-This is an ongoing work in progress. The goal is to gradually incorporate the most common reinforcement learning algorithms to this repository.
+Currently, we're reimplementing popular reinforcement learning algorithms using [Equinox](https://github.com/patrick-kidger/equinox) to assess its suitability for RL workloads.
 
 ### Ports
 
-See [ports](./ports.md) for a list ports of Reinforcement Learning implementations to Jax/Equinox we have created so far.
+See [ports](./ports.md) for a list of ports of Reinforcement Learning implementations to Jax/Equinox we have implemented so far.
 
 ## Changelog
 
+* 2025.05.22
+  * BSuite example ports added.
 * 2025.05.20
   * RLax example ports added.
 * 2025.05.17
