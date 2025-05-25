@@ -3,8 +3,11 @@
 
 Ports of Deep Reinforcement Learning implementations to Jax/Equinox.
 
+**Note: These ports are experimental implementations for evaluating Equinox and are not finalized versions. They serve as proof-of-concept explorations rather than production-ready code.**
+
 * [BSuite](https://github.com/google-deepmind/bsuite) ( Haiku to Equinox)
   * [actor_critic_eqx.py](./ports/bsuite/actor_critic_eqx.py) Port of the BSuite jax actor critic implementation [actor_critic](https://github.com/google-deepmind/bsuite/tree/main/bsuite/baselines/jax/actor_critic).
+  * [actor_critic_rnn_eqx.py](./ports/bsuite/actor_critic_rnn_eqx.py) Port of the BSuite jax recurrent actor critic implementation [actor_critic](https://github.com/google-deepmind/bsuite/tree/main/bsuite/baselines/jax/actor_critic_rnn).
   
 * [CleanRL](https://github.com/vwxyzjn/cleanrl) (Flax/Linen to Equinox)
   * [**c51_jax_eqx**](./ports/cleanrl/c51_jax_eqx): Port of the CleanRL Categorical DQN implementation [c51_jax.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51_jax.py)

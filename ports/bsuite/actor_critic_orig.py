@@ -37,7 +37,7 @@ import jax.numpy as jnp
 import optax
 import rlax
 
-"""A simple actor-critic agent implemented in JAX + Haiku."""
+"""A simple recurrent actor-critic agent implemented in JAX + Haiku."""
 
 Logits = jnp.ndarray
 Value = jnp.ndarray

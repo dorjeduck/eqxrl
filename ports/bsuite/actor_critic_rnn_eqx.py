@@ -1,3 +1,6 @@
+# pylint: disable=g-bad-file-header
+# Copyright 2019 DeepMind Technologies Limited. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,36 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Run an actor-critic agent instance on a bsuite experiment."""
+"""A simple recurrent actor-critic agent implemented in JAX + Haiku."""
+
+from typing import Any, Optional, NamedTuple, Tuple
+
+import bsuite
+from bsuite import sweep
+
+from bsuite.baselines import base
+from bsuite.baselines.utils import sequence
+from bsuite.baselines import experiment
+
+from bsuite.baselines.utils import pool
 
 from absl import app
 from absl import flags
 
-import bsuite
-
-from bsuite.baselines import experiment
-from bsuite import sweep
-from bsuite.baselines.utils import pool
-
-from typing import Any, Callable, NamedTuple, Tuple
-
-from bsuite.baselines import base
-from bsuite.baselines.utils import sequence
-
+import dm_env
+from dm_env import specs
 import equinox as eqx
+
 import jax
 import jax.numpy as jnp
 import optax
 import rlax
 
-import dm_env
-from dm_env import specs
-
-"""A simple actor-critic agent implemented in JAX + Equinox."""
+from dataclasses import replace
 
 Logits = jnp.ndarray
 Value = jnp.ndarray
-PolicyValueNet = Callable[[jnp.ndarray], Tuple[Logits, Value]]
+LSTMState = Any
 
 
 class MLP(eqx.Module):
@@ -55,63 +58,126 @@ class MLP(eqx.Module):
             )
 
     def __call__(self, x):
-     
+
         for layer in self.layers[:-1]:
             x = jax.nn.relu(layer(x))
         return self.layers[-1](x)
 
 
-class PolicyValueNetwork(eqx.Module):
+class RecurrentPolicyValueNet(eqx.Module):
+
     torso: MLP
+    lstm: eqx.nn.LSTMCell
     policy_head: eqx.nn.Linear
     value_head: eqx.nn.Linear
 
-    def __init__(self, input_size, hidden_sizes, num_actions, key):
-        keys = jax.random.split(key, 3)
-        layer_sizes = [input_size] + hidden_sizes
-  
+    def __init__(
+        self,
+        in_size: int,
+        hidden_size: int,
+        num_actions: int,
+        key: jax.random.PRNGKey,
+    ):
+        keys = jax.random.split(key, 4)
+
+        layer_sizes = [in_size] + [hidden_size, hidden_size]
         self.torso = MLP(layer_sizes, keys[0])
-        self.policy_head = eqx.nn.Linear(hidden_sizes[-1], num_actions, key=keys[1])
-        self.value_head = eqx.nn.Linear(hidden_sizes[-1], 1, key=keys[2])
 
-    def __call__(self, inputs):
+        self.lstm = eqx.nn.LSTMCell(hidden_size, hidden_size, key=keys[1])
+
+        self.policy_head = eqx.nn.Linear(
+            in_features=hidden_size, out_features=num_actions, key=keys[2]
+        )
+        self.value_head = eqx.nn.Linear(
+            in_features=hidden_size, out_features=1, key=keys[3]
+        )
+
+    def __call__(
+        self,
+        inputs: jnp.ndarray,
+        state: Optional[Tuple[jnp.ndarray, jnp.ndarray]] = None,
+    ) -> Tuple[Tuple[jnp.ndarray, jnp.ndarray], Tuple[jnp.ndarray, jnp.ndarray]]:
+        """
+        Processes inputs through the network to obtain policy logits and value estimates.
+
+        Args:
+            inputs: jnp.ndarray of shape (seq_len, in_size)
+            state: Optional tuple of (hidden_state, cell_state), each of shape (hidden_size,)
+
+        Returns:
+            logits: jnp.ndarray of shape (seq_len, num_actions)
+            values: jnp.ndarray of shape (seq_len,)
+            final_state: Tuple of (hidden_state, cell_state), each of shape (hidden_size,)
+        """
+        # Pass through MLP torso
         flat_inputs = jnp.ravel(inputs)
+
         embedding = self.torso(flat_inputs)
-        logits = self.policy_head(embedding)
-        value = self.value_head(embedding)
-        return logits, jnp.squeeze(value, axis=-1)
-    
+
+        # Process through LSTM
+        new_state = self.lstm(embedding, state)
+
+        # Use the LSTM's hidden output, not the input embedding
+        lstm_output = new_state[0]  # Extract hidden state
+
+        # Compute policy logits and value estimates using LSTM output
+        logits = self.policy_head(lstm_output)
+        value = self.value_head(lstm_output)
+
+        return logits, jnp.squeeze(value, axis=-1), new_state
+
     @jax.jit
-    def forward_pass(self, *x):
-       return jax.vmap(self.__call__)(*x)
+    def forward_pass(self, input, state):
+        return self.__call__(input, state)
 
 
-class TrainingState(NamedTuple):
-    model: PolicyValueNetwork
+class AgentState(NamedTuple):
+    """Holds the network parameters, optimizer state, and RNN state."""
+
+    model: RecurrentPolicyValueNet
     opt_state: Any
+    rnn_state: LSTMState
+    rnn_unroll_state: LSTMState
+
+    def replace(self, **kwargs):
+        return self._replace(**kwargs)
 
 
-class ActorCritic(base.Agent):
-    """Feed-forward actor-critic agent."""
+class ActorCriticRNN(base.Agent):
+    """Recurrent actor-critic agent."""
 
     def __init__(
         self,
         obs_spec: specs.Array,
         action_spec: specs.DiscreteArray,
-        network: PolicyValueNetwork,
+        network: RecurrentPolicyValueNet,
+        initial_rnn_state,
         optimizer: optax.GradientTransformation,
-        key: jax.Array,
+        key: jax.random.PRNGKey,
         sequence_length: int,
         discount: float,
         td_lambda: float,
+        entropy_cost: float = 0.0,
     ):
 
         # Define loss function.
         def loss(
-            model: PolicyValueNetwork, trajectory: sequence.Trajectory
+            model: RecurrentPolicyValueNet,
+            trajectory: sequence.Trajectory,
+            rnn_unroll_state: LSTMState,
         ) -> jnp.ndarray:
-            """ "Actor-critic loss."""
-            logits, values = model.forward_pass(trajectory.observations)
+            """Actor-critic loss."""
+
+            def scan_fn(carry_state, obs):
+                logits, value, new_state = model(obs, carry_state)
+                return new_state, (logits, value)
+
+            new_rnn_unroll_state, (logits, values) = jax.lax.scan(
+                scan_fn, rnn_unroll_state, trajectory.observations
+            )
+            seq_len = trajectory.actions.shape[0]
+
+            # Remove the ,0 indexing - logits and values are already 1D from scan
             td_errors = rlax.td_lambda(
                 v_tm1=values[:-1],
                 r_t=trajectory.rewards,
@@ -124,39 +190,51 @@ class ActorCritic(base.Agent):
                 logits_t=logits[:-1],
                 a_t=trajectory.actions,
                 adv_t=td_errors,
-                w_t=jnp.ones_like(td_errors),
+                w_t=jnp.ones(seq_len),
             )
 
-            return actor_loss + critic_loss
+            entropy_loss = jnp.mean(rlax.entropy_loss(logits[:-1], jnp.ones(seq_len)))
+
+            combined_loss = actor_loss + critic_loss + entropy_cost * entropy_loss
+
+            return combined_loss, new_rnn_unroll_state
 
         # Define update function.
         @jax.jit
-        def sgd_step(
-            state: TrainingState, trajectory: sequence.Trajectory
-        ) -> TrainingState:
+        def sgd_step(state: AgentState, trajectory: sequence.Trajectory) -> AgentState:
             """Does a step of SGD over a trajectory."""
-            gradients = jax.grad(loss)(state.model, trajectory)
+            gradients, new_rnn_state = jax.grad(loss, has_aux=True)(
+                state.model, trajectory, state.rnn_unroll_state
+            )
             updates, new_opt_state = optimizer.update(gradients, state.opt_state)
             new_model = eqx.apply_updates(state.model, updates)
-            return TrainingState(model=new_model, opt_state=new_opt_state)
-
-        # Initialize optimiser state.
+            return state.replace(
+                model=new_model,
+                opt_state=new_opt_state,
+                rnn_unroll_state=new_rnn_state,
+            )
 
         initial_opt_state = optimizer.init(eqx.filter(network, eqx.is_array))
 
         # Internalize state.
-        self._state = TrainingState(network, initial_opt_state)
+        self._state = AgentState(
+            network, initial_opt_state, initial_rnn_state, initial_rnn_state
+        )
+
         self._buffer = sequence.Buffer(obs_spec, action_spec, sequence_length)
         self._sgd_step = sgd_step
         self._key = key
+        self._initial_rnn_state = initial_rnn_state
 
     def select_action(self, timestep: dm_env.TimeStep) -> base.Action:
         """Selects actions according to a softmax policy."""
         self._key, action_key = jax.random.split(self._key)
         observation = timestep.observation[None, ...]
 
-        logits, _ = self._state.model.forward_pass(observation)
-
+        logits, _, rnn_state = self._state.model.forward_pass(
+            observation, self._state.rnn_state
+        )
+        self._state = self._state._replace(rnn_state=rnn_state)
         action = jax.random.categorical(action_key, logits).squeeze()
         return int(action)
 
@@ -167,34 +245,43 @@ class ActorCritic(base.Agent):
         new_timestep: dm_env.TimeStep,
     ):
         """Adds a transition to the trajectory buffer and periodically does SGD."""
+        if new_timestep.last():
+            self._state = self._state._replace(rnn_state=self._initial_rnn_state)
         self._buffer.append(timestep, action, new_timestep)
         if self._buffer.full() or new_timestep.last():
             trajectory = self._buffer.drain()
             self._state = self._sgd_step(self._state, trajectory)
 
 
-def actor_critic_default_agent(
+def actor_critic_rnn_default_agent(
     obs_spec: specs.Array, action_spec: specs.DiscreteArray, seed: int = 0
 ) -> base.Agent:
     """Creates an actor-critic agent with default hyperparameters."""
 
     key = jax.random.key(seed)
-    input_size = jnp.prod(jnp.array(obs_spec.shape))
-    hidden_sizes = [64, 64]
+    key, model_key = jax.random.split(key)
 
-    key, init_key = jax.random.split(key)
+    hidden_size = 256
+    in_size = jnp.prod(jnp.array(obs_spec.shape))
 
-    network = PolicyValueNetwork(
-        input_size=input_size,
-        hidden_sizes=hidden_sizes,
+    network = RecurrentPolicyValueNet(
+        in_size=in_size,
+        hidden_size=hidden_size,
         num_actions=action_spec.num_values,
-        key=init_key,
+        key=model_key,
     )
 
-    return ActorCritic(
+    # Match original: batch dimension of 1
+    initial_rnn_state = (
+        jnp.zeros((hidden_size), dtype=jnp.float32),
+        jnp.zeros((hidden_size), dtype=jnp.float32),
+    )
+
+    return ActorCriticRNN(
         obs_spec=obs_spec,
         action_spec=action_spec,
         network=network,
+        initial_rnn_state=initial_rnn_state,
         optimizer=optax.adam(3e-3),
         key=key,
         sequence_length=32,
@@ -234,7 +321,7 @@ def run(bsuite_id: str) -> str:
         overwrite=FLAGS.overwrite,
     )
 
-    agent = actor_critic_default_agent(env.observation_spec(), env.action_spec())
+    agent = actor_critic_rnn_default_agent(env.observation_spec(), env.action_spec())
 
     num_episodes = FLAGS.num_episodes or getattr(env, "bsuite_num_episodes")
     experiment.run(

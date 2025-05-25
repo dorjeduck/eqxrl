@@ -181,3 +181,5 @@ lab*/
 repos
 ports/cleanrl/runs
 wandb
+
+*v[0-9].py
