@@ -1,5 +1,7 @@
 # Changelog
 
+* 2025.05.26
+  * BSuite DQN and Bootstrapped DQN added.
 * 2025.05.25
   * BSuite recurrent actor critic port added.
 * 2025.05.22
