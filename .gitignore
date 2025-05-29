@@ -181,5 +181,6 @@ lab*/
 repos
 ports/cleanrl/runs
 wandb
-
+umax/
+ports/purejaxql/
 *v[0-9].py

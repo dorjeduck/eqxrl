@@ -166,7 +166,7 @@ def build_network(
 
     # Flatten the observation shape
     return QNetwork(
-        in_features=in_features,  # Replace with the correct input size
+        in_features=in_features,  
         num_hidden_units=num_hidden_units,
         num_actions=num_actions,
         key=key,

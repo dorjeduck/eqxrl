@@ -131,7 +131,7 @@ def make_train(config):
                 config["EPSILON_FINISH"],
             )
             greedy_actions = jnp.argmax(q_vals, axis=-1)  # get the greedy actions
-            chosed_actions = jnp.where(
+            chosen_actions = jnp.where(
                 jax.random.uniform(rng_e, greedy_actions.shape)
                 < eps,  # pick the actions that should be random
                 jax.random.randint(
@@ -139,7 +139,7 @@ def make_train(config):
                 ),  # sample random actions,
                 greedy_actions,
             )
-            return chosed_actions
+            return chosen_actions
 
         # TRAINING LOOP
         def _update_step(runner_state, unused):
@@ -187,7 +187,6 @@ def make_train(config):
                         axis=-1,
                     ).squeeze(axis=-1)
 
-            
                     return jnp.mean((chosen_action_qvals - target) ** 2)
 
                 loss, grads = jax.value_and_grad(_loss_fn)(train_state.params)

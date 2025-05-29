@@ -76,7 +76,7 @@ class QMLPWithPrior(eqx.Module):
         prior_scale: float = 5.0,
     ):
         # Split keys for main network and prior network
-        main_key, prior_key = jax.random.split(key, 2)
+        main_key, prior_key = jax.random.split(key)
         k1, k2, k3 = jax.random.split(main_key, 3)
         pk1, pk2, pk3 = jax.random.split(prior_key, 3)
 

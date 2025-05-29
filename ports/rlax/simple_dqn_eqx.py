@@ -72,7 +72,7 @@ def build_network(obs_shape, num_actions: int, key):
     in_size = int(np.prod(obs_shape))
     return QMLP(in_size, FLAGS.hidden_units, num_actions, key)
 
-
+    
 class ReplayBuffer(object):
     """A simple Python replay buffer."""
 

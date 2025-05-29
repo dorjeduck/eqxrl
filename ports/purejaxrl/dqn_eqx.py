@@ -130,7 +130,6 @@ def make_train(config):
             key=_rng,
         )
 
-
         def linear_schedule(count):
             frac = 1.0 - (count / config["NUM_UPDATES"])
             return config["LR"] * frac
@@ -164,7 +163,7 @@ def make_train(config):
                 config["EPSILON_FINISH"],
             )
             greedy_actions = jnp.argmax(q_vals, axis=-1)  # get the greedy actions
-            chosed_actions = jnp.where(
+            chosen_actions = jnp.where(
                 jax.random.uniform(rng_e, greedy_actions.shape)
                 < eps,  # pick the actions that should be random
                 jax.random.randint(
@@ -172,7 +171,7 @@ def make_train(config):
                 ),  # sample random actions,
                 greedy_actions,
             )
-            return chosed_actions
+            return chosen_actions
 
         # TRAINING LOOP
         def _update_step(runner_state, unused):

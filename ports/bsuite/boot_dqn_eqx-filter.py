@@ -76,7 +76,7 @@ class QMLPWithPrior(eqx.Module):
         prior_scale: float = 5.0,
     ):
         # Split keys for main network and prior network
-        main_key, prior_key = jax.random.split(key, 2)
+        main_key, prior_key = jax.random.split(key)
         k1, k2, k3 = jax.random.split(main_key, 3)
         pk1, pk2, pk3 = jax.random.split(prior_key, 3)
 
@@ -170,7 +170,7 @@ class BootstrappedDqn(base.Agent):
         ) -> TrainingState:
             """Does a step of SGD for the whole ensemble over `transitions`."""
 
-            diff_model, static_model = eqx.partition(state.model, filter_spec)
+            diff_model, static_model = eqx.partition(state.model, self._filter_spec)
             
             gradients = eqx.filter_grad(loss)(
                 diff_model,static_model, state.target_model, transitions
@@ -187,12 +187,12 @@ class BootstrappedDqn(base.Agent):
 
         # filter for frozen weigths of the prior_layers
 
-        filter_spec = jax.tree_util.tree_map(lambda _: True, models[0])
-        filter_spec = eqx.tree_at(
+        self._filter_spec = jax.tree_util.tree_map(lambda _: True, models[0])
+        self._filter_spec = eqx.tree_at(
             lambda tree: [
                 w for layer in tree.prior_layers for w in (layer.weight, layer.bias)
             ],
-            filter_spec,
+            self._filter_spec,
             replace=[False] * (2 * len(models[0].prior_layers)),
         )
 

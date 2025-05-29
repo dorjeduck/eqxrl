@@ -176,7 +176,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     random.seed(args.seed)
     np.random.seed(args.seed)
     key = jax.random.PRNGKey(args.seed)
-    key, q_key = jax.random.split(key, 2)
+    key, q_key = jax.random.split(key)
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
