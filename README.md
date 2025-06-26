@@ -14,7 +14,7 @@ See [ports](./ports.md) for a list of ports of Reinforcement Learning implementa
 
 ### Partner project
 
-See Zenoqx for a partial port of [Stoix](https://github.com/EdanToledo/Stoix) from [Flax/Linen](https://flax-linen.readthedocs.io/en/latest/) to [Equinox](https://github.com/patrick-kidger/equinox). We decided to give this its own repository as it might become an interesting standalone base for experimenting with novel RL approaches using Equinox.
+See [Zenoqx](https://github.com/dorjeduck/zenoqx) for a partial port of [Stoix](https://github.com/EdanToledo/Stoix) from [Flax/Linen](https://flax-linen.readthedocs.io/en/latest/) to [Equinox](https://github.com/patrick-kidger/equinox). We decided to give this its own repository as it might become an interesting standalone base for experimenting with novel RL approaches using Equinox.
 
 ## Changelog
 
