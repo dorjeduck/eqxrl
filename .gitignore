@@ -182,5 +182,6 @@ repos
 ports/cleanrl/runs
 wandb
 umax/
+showcase/
 ports/purejaxql/
 *v[0-9].py

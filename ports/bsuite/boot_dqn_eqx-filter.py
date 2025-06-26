@@ -153,7 +153,7 @@ class BootstrappedDqn(base.Agent):
             transitions: Sequence[jnp.ndarray],
         ) -> jnp.ndarray:
             """Q-learning loss with added reward noise + half-in bootstrap."""
-            
+
             model = eqx.combine(diff_model, static_model)
             o_tm1, a_tm1, r_t, d_t, o_t, m_t, z_t = transitions
             q_tm1 = jax.vmap(model)(o_tm1)
@@ -171,9 +171,9 @@ class BootstrappedDqn(base.Agent):
             """Does a step of SGD for the whole ensemble over `transitions`."""
 
             diff_model, static_model = eqx.partition(state.model, self._filter_spec)
-            
+
             gradients = eqx.filter_grad(loss)(
-                diff_model,static_model, state.target_model, transitions
+                diff_model, static_model, state.target_model, transitions
             )
             updates, new_opt_state = optimizer.update(gradients, state.opt_state)
             new_model = eqx.apply_updates(state.model, updates)
@@ -187,7 +187,7 @@ class BootstrappedDqn(base.Agent):
 
         # filter for frozen weigths of the prior_layers
 
-        self._filter_spec = jax.tree_util.tree_map(lambda _: True, models[0])
+        self._filter_spec = jax.tree_util.tree.map(lambda _: True, models[0])
         self._filter_spec = eqx.tree_at(
             lambda tree: [
                 w for layer in tree.prior_layers for w in (layer.weight, layer.bias)

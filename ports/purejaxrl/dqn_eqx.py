@@ -96,6 +96,7 @@ def make_train(config):
 
     def train(rng):
 
+       
         # INIT ENV
         rng, _rng = jax.random.split(rng)
         init_obs, env_state = vmap_reset(config["NUM_ENVS"])(_rng)
@@ -175,6 +176,7 @@ def make_train(config):
 
         # TRAINING LOOP
         def _update_step(runner_state, unused):
+            jax.debug.print("Tracing my_fn!<---------------")
 
             train_state, buffer_state, env_state, last_obs, rng = runner_state
 
